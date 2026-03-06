@@ -1,5 +1,5 @@
 name: Bug Report
-description: Einen Fehler im Backend melden
+description: Report a bug in the backend
 title: "[Bug]: "
 labels: ["bug", "triage"]
 projects: []
@@ -9,74 +9,74 @@ body:
   - type: markdown
     attributes:
       value: |
-        Danke, dass du dir die Zeit nimmst, diesen Fehler zu melden!
+        Thanks for taking the time to report this bug!
 
   - type: dropdown
-    id: thema
+    id: topic
     attributes:
-      label: Thema / API-Bereich
-      description: Welcher Teil des Backends ist betroffen?
+      label: Topic / API Area
+      description: Which part of the backend is affected?
       options:
-        - Authentifizierung / JWT
-        - Spaces (Haupt-Aggregat)
-        - Tasks / Aufgaben API
-        - Dokumente API
-        - Benachrichtigungen API
+        - Authentication / JWT
+        - Spaces (primary aggregate)
+        - Tasks API
+        - Documents API
+        - Notifications API
         - Matterport Integration
-        - Supabase / Datenbank
+        - Supabase / Database
         - Middleware / Security
         - CI/CD / Deployment
-        - Swagger / API-Docs
-        - Sonstiges
+        - Swagger / API Docs
+        - Other
     validations:
       required: true
 
   - type: input
     id: endpoint
     attributes:
-      label: Betroffener API-Endpunkt
-      placeholder: z.B. GET /api/spaces/:id
+      label: Affected API Endpoint
+      placeholder: e.g. GET /api/spaces/:id
 
   - type: textarea
-    id: beschreibung
+    id: description
     attributes:
-      label: Fehlerbeschreibung
-      description: Was ist passiert? Was hast du erwartet?
+      label: Bug Description
+      description: What happened? What did you expect?
     validations:
       required: true
 
   - type: textarea
-    id: schritte
+    id: steps
     attributes:
-      label: Schritte zur Reproduktion
+      label: Steps to Reproduce
       placeholder: |
-        1. Request an '...' senden
-        2. Mit Body '...'
-        3. Fehler erscheint
+        1. Send request to '...'
+        2. With body '...'
+        3. Error appears
     validations:
       required: true
 
   - type: textarea
     id: response
     attributes:
-      label: Tatsächliche Response / Fehlermeldung
+      label: Actual Response / Error Message
       render: json
-      placeholder: HTTP Status Code und Response Body
+      placeholder: HTTP status code and response body
 
   - type: dropdown
-    id: prioritaet
+    id: priority
     attributes:
-      label: Priorität
+      label: Priority
       options:
-        - Kritisch (Produktionsausfall)
-        - Hoch (wichtige Funktion kaputt)
-        - Mittel (Workaround vorhanden)
-        - Niedrig (minor)
+        - Critical (production outage)
+        - High (important feature broken)
+        - Medium (workaround available)
+        - Low (minor)
     validations:
       required: true
 
   - type: textarea
-    id: kontext
+    id: context
     attributes:
-      label: Zusätzlicher Kontext
-      description: Logs, Stack Traces, Screenshots
+      label: Additional Context
+      description: Logs, stack traces, screenshots
