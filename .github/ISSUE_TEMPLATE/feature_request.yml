@@ -1,5 +1,5 @@
 name: Feature Request
-description: Neue API-Funktion oder Verbesserung vorschlagen
+description: Suggest a new API feature or improvement
 title: "[Feature]: "
 labels: ["enhancement", "needs-discussion"]
 projects: []
@@ -7,21 +7,21 @@ assignees: []
 
 body:
   - type: dropdown
-    id: thema
+    id: topic
     attributes:
-      label: Thema / API-Bereich
+      label: Topic / API Area
       options:
-        - Authentifizierung / JWT
+        - Authentication / JWT
         - Spaces API
         - Tasks API
-        - Dokumente API
-        - Benachrichtigungen API
+        - Documents API
+        - Notifications API
         - Matterport Integration
-        - Supabase / Datenbank
+        - Supabase / Database
         - Performance / Caching
         - Security
-        - API-Dokumentation
-        - Neuer Bereich
+        - API Documentation
+        - New Area
     validations:
       required: true
 
@@ -29,15 +29,15 @@ body:
     id: problem
     attributes:
       label: Problem / Motivation
-      description: Welches Problem soll diese Funktion lösen?
+      description: What problem should this feature solve?
     validations:
       required: true
 
   - type: textarea
-    id: loesung
+    id: solution
     attributes:
-      label: Gewünschte Lösung
-      description: Wie soll der Endpunkt / die Funktion aussehen?
+      label: Desired Solution
+      description: How should the endpoint / feature look?
       placeholder: |
         Endpoint: POST /api/...
         Request Body: { ... }
@@ -46,17 +46,17 @@ body:
       required: true
 
   - type: dropdown
-    id: prioritaet
+    id: priority
     attributes:
-      label: Priorität
+      label: Priority
       options:
-        - Muss-haben (MVP)
-        - Sollte vorhanden sein
+        - Must-have (MVP)
+        - Should-have
         - Nice-to-have
     validations:
       required: true
 
   - type: textarea
-    id: kontext
+    id: context
     attributes:
-      label: Zusätzlicher Kontext
+      label: Additional Context
