@@ -7,11 +7,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy_prd:
+  build:
     runs-on: ubuntu-latest
-    name: Deploy to dev App Service
-    environment:
-      name: 'Production'
+    name: Build backend
 
     steps:
     - name: Checkout code
