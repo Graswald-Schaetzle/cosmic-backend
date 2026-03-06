@@ -1,5 +1,5 @@
-name: Aufgabe / Task
-description: Backend-Entwicklungsaufgabe oder Refactoring
+name: Task
+description: Backend development task or refactoring
 title: "[Task]: "
 labels: ["task"]
 projects: []
@@ -7,50 +7,50 @@ assignees: []
 
 body:
   - type: dropdown
-    id: thema
+    id: topic
     attributes:
-      label: Thema / Sprint-Bereich
+      label: Topic / Sprint Area
       options:
-        - Authentifizierung / JWT
+        - Authentication / JWT
         - Spaces API
         - Tasks API
-        - Dokumente API
-        - Benachrichtigungen API
+        - Documents API
+        - Notifications API
         - Matterport Integration
-        - Supabase / Datenbank
-        - Refactoring / Code-Qualität
-        - Testing / Qualitätssicherung
+        - Supabase / Database
+        - Refactoring / Code Quality
+        - Testing / QA
         - DevOps / CI/CD
         - Security
-        - API-Dokumentation (Swagger)
+        - API Documentation (Swagger)
     validations:
       required: true
 
   - type: textarea
-    id: beschreibung
+    id: description
     attributes:
-      label: Aufgabenbeschreibung
+      label: Task Description
     validations:
       required: true
 
   - type: textarea
-    id: akzeptanzkriterien
+    id: acceptance_criteria
     attributes:
-      label: Akzeptanzkriterien
+      label: Acceptance Criteria
       placeholder: |
-        - [ ] Kriterium 1
-        - [ ] Kriterium 2
+        - [ ] Criterion 1
+        - [ ] Criterion 2
     validations:
       required: true
 
   - type: dropdown
-    id: prioritaet
+    id: priority
     attributes:
-      label: Priorität
+      label: Priority
       options:
-        - Kritisch
-        - Hoch
-        - Mittel
-        - Niedrig
+        - Critical
+        - High
+        - Medium
+        - Low
     validations:
       required: true
