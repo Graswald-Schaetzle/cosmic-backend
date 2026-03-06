@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Projekt-Dokumentation (Wiki)
+  - name: Project Documentation (Wiki)
     url: https://github.com/Graswald-Schaetzle/cosmic-backend/wiki
-    about: API-Dokumentation, Architektur und Setup-Guides
+    about: API documentation, architecture and setup guides
