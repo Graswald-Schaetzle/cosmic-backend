@@ -39,13 +39,13 @@ const taskRoutes = async (app, supabase) => {
   });
 
   app.get('/task', async (req, res) => {
-    const { location_id } = req.query;
+    const { location_id, space_id, room_id } = req.query;
 
     let taskQuery = supabase.from('tasks').select('*');
 
-    if (location_id) {
-      taskQuery = taskQuery.eq('location_id', location_id);
-    }
+    if (location_id) taskQuery = taskQuery.eq('location_id', location_id);
+    if (space_id) taskQuery = taskQuery.eq('space_id', space_id);
+    if (room_id) taskQuery = taskQuery.eq('room_id', room_id);
 
     const { data: tasks, error: tasksError } = await taskQuery;
 
@@ -54,10 +54,10 @@ const taskRoutes = async (app, supabase) => {
     }
 
     const taskIds = tasks.map((task) => task.task_id);
-    const userIds = tasks.map((task) => task.user_id).filter(Boolean);
-    const activityIds = tasks.map((task) => task.activity_id).filter(Boolean);
+    const userIds = tasks
+      .map((task) => task.created_by_user_id)
+      .filter(Boolean);
     const locationIds = tasks.map((task) => task.location_id).filter(Boolean);
-    const reccuringIds = tasks.map((task) => task.reccuring_id).filter(Boolean);
 
     const { data: documents, error: documentsError } = await supabase
       .from('documents')
@@ -70,22 +70,6 @@ const taskRoutes = async (app, supabase) => {
             .from('users')
             .select('user_id, username, first_name, last_name')
             .in('user_id', userIds)
-        : { data: [], error: null };
-
-    const { data: activities, error: activitiesError } =
-      activityIds.length > 0
-        ? await supabase
-            .from('activity')
-            .select('activity_id, name')
-            .in('activity_id', activityIds)
-        : { data: [], error: null };
-
-    const { data: reccuring, error: reccuringError } =
-      reccuringIds.length > 0
-        ? await supabase
-            .from('reccuring')
-            .select('reccuring_id, name')
-            .in('reccuring_id', reccuringIds)
         : { data: [], error: null };
 
     const { data: location, error: locationError } =
@@ -111,8 +95,6 @@ const taskRoutes = async (app, supabase) => {
       : { data: [] };
 
     const tasksWithDetails = tasks.map((task) => {
-      const { activity_id, reccuring_id, user_id, ...rest } = task;
-
       const taskListIds =
         listTasks
           ?.filter((lt) => lt.task_id === task.task_id)
@@ -122,29 +104,21 @@ const taskRoutes = async (app, supabase) => {
         lists?.filter((l) => taskListIds.includes(l.list_id)) || [];
 
       return {
-        ...rest,
+        ...task,
         documents:
           documents?.filter((doc) => doc.task_id === task.task_id) || [],
-        assignee: users?.find((user) => user.user_id === task.user_id) || null,
-        activity:
-          activities?.find((act) => act.activity_id === task.activity_id) ||
+        assignee:
+          users?.find((user) => user.user_id === task.created_by_user_id) ||
           null,
         locations:
           location?.find((loc) => loc.location_id === task.location_id) || null,
-        reccuring:
-          reccuring?.find((rec) => rec.reccuring_id === task.reccuring_id) ||
-          null,
         lists: taskLists,
       };
     });
 
     res.json({
       data: tasksWithDetails,
-      errors: {
-        documentsError,
-        usersError,
-        activitiesError,
-      },
+      errors: { documentsError, usersError, locationError },
     });
   });
 
@@ -167,34 +141,24 @@ const taskRoutes = async (app, supabase) => {
 
     const task = { ...taskData };
 
-    if (task.user_id) {
+    if (task.created_by_user_id) {
       const { data: user } = await supabase
         .from('users')
         .select('user_id, username, first_name, last_name')
-        .eq('user_id', task.user_id)
+        .eq('user_id', task.created_by_user_id)
         .single();
 
       task.assignee = user || null;
     }
 
-    if (task.activity_id) {
-      const { data: activity } = await supabase
-        .from('activity')
-        .select('activity_id, name')
-        .eq('activity_id', task.activity_id)
+    if (task.assigned_user_id) {
+      const { data: assignedUser } = await supabase
+        .from('users')
+        .select('user_id, username, first_name, last_name')
+        .eq('user_id', task.assigned_user_id)
         .single();
 
-      task.activity = activity || null;
-    }
-
-    if (task.reccuring_id) {
-      const { data: reccuring } = await supabase
-        .from('reccuring')
-        .select('reccuring_id, name')
-        .eq('reccuring_id', task.reccuring_id)
-        .single();
-
-      task.reccuring = reccuring || null;
+      task.assigned_user = assignedUser || null;
     }
 
     if (task.location_id) {
@@ -207,9 +171,7 @@ const taskRoutes = async (app, supabase) => {
       task.location = location || null;
     }
 
-    console.log('id', id);
-
-    const { data: listTasks, error: listTasksError } = await supabase
+    const { data: listTasks } = await supabase
       .from('list_tasks')
       .select('list_id')
       .eq('task_id', id);
@@ -228,18 +190,10 @@ const taskRoutes = async (app, supabase) => {
 
     task.lists = lists;
 
-    delete task.activity_id;
-    delete task.reccuring_id;
-    delete task.location_id;
-    delete task.user_id;
-
     res.json({
       task,
       documents,
-      errors: {
-        taskError,
-        documentsError,
-      },
+      errors: { taskError, documentsError },
     });
   });
 

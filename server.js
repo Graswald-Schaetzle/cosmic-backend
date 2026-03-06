@@ -32,6 +32,9 @@ const { documentRoutes } = require('./app/routes/documentRoute');
 const { listRoutes } = require('./app/routes/listRoute');
 const { notificationRoutes } = require('./app/routes/notificationsRoute');
 const { floorsRoutes } = require('./app/routes/floorsRoutes');
+const { assetRoutes } = require('./app/routes/assetsRoute');
+const { eventRoutes } = require('./app/routes/eventsRoute');
+const { spaceMembershipRoutes } = require('./app/routes/spaceMembershipsRoute');
 
 const connectToServer = () => {
   app.use(cors(corsOptions));
@@ -51,6 +54,9 @@ const connectToServer = () => {
   listRoutes(app, supabase);
   notificationRoutes(app, supabase);
   floorsRoutes(app, supabase);
+  assetRoutes(app, supabase);
+  eventRoutes(app, supabase);
+  spaceMembershipRoutes(app, supabase);
 
   app.listen(port, () => {
     console.log(`Server is listening at http://localhost:${port}`);
