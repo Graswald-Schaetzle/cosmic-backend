@@ -1,0 +1,62 @@
+name: Feature Request
+description: Neue API-Funktion oder Verbesserung vorschlagen
+title: "[Feature]: "
+labels: ["enhancement", "needs-discussion"]
+projects: []
+assignees: []
+
+body:
+  - type: dropdown
+    id: thema
+    attributes:
+      label: Thema / API-Bereich
+      options:
+        - Authentifizierung / JWT
+        - Spaces API
+        - Tasks API
+        - Dokumente API
+        - Benachrichtigungen API
+        - Matterport Integration
+        - Supabase / Datenbank
+        - Performance / Caching
+        - Security
+        - API-Dokumentation
+        - Neuer Bereich
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: Welches Problem soll diese Funktion lösen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: loesung
+    attributes:
+      label: Gewünschte Lösung
+      description: Wie soll der Endpunkt / die Funktion aussehen?
+      placeholder: |
+        Endpoint: POST /api/...
+        Request Body: { ... }
+        Response: { ... }
+    validations:
+      required: true
+
+  - type: dropdown
+    id: prioritaet
+    attributes:
+      label: Priorität
+      options:
+        - Muss-haben (MVP)
+        - Sollte vorhanden sein
+        - Nice-to-have
+    validations:
+      required: true
+
+  - type: textarea
+    id: kontext
+    attributes:
+      label: Zusätzlicher Kontext

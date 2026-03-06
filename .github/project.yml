@@ -1,0 +1,59 @@
+# GitHub Project Board - Konfiguration
+# Cosmic Backend
+#
+# Anleitung zum Erstellen des Projekt-Boards:
+# 1. Gehe zu https://github.com/Graswald-Schaetzle/cosmic-backend
+# 2. Klicke auf "Projects" > "New project"
+# 3. Wähle "Board" als Template
+# 4. Benenne das Projekt: "Cosmic Backend – API Roadmap"
+# 5. Füge die Spalten gemäß dieser Konfiguration hinzu
+
+name: "Cosmic Backend – API Roadmap"
+description: >
+  Themengesteuertes Projekt-Board für die Backend-Entwicklung.
+  Issues werden über Labels nach API-Bereichen gefiltert und priorisiert.
+
+# ─── Board-Spalten ───────────────────────────────────────────────────────────
+columns:
+  - name: "Backlog"
+    description: Alle offenen, noch nicht priorisierten Aufgaben
+    filter: "is:open label:\"status: backlog\""
+
+  - name: "Bereit"
+    description: Priorisierte Aufgaben, bereit zur Bearbeitung
+    filter: "is:open label:\"status: bereit\""
+
+  - name: "In Bearbeitung"
+    description: Aktuell in Entwicklung
+    filter: "is:open label:\"status: in-bearbeitung\""
+
+  - name: "Review / QA"
+    description: Wartet auf Code-Review oder Tests
+    filter: "is:open label:\"status: review\""
+
+  - name: "Erledigt"
+    description: Abgeschlossene Aufgaben
+    filter: "is:closed"
+
+# ─── Themen-Filter (für Board-Ansichten) ─────────────────────────────────────
+themen_views:
+  - name: "Spaces API"
+    filter: "label:\"thema: spaces\""
+
+  - name: "Tasks API"
+    filter: "label:\"thema: tasks-api\""
+
+  - name: "Dokumente API"
+    filter: "label:\"thema: dokumente-api\""
+
+  - name: "Auth & Security"
+    filter: "label:\"thema: auth\""
+
+  - name: "Datenbank"
+    filter: "label:\"thema: datenbank\""
+
+  - name: "Matterport"
+    filter: "label:\"thema: matterport\""
+
+  - name: "DevOps"
+    filter: "label:\"thema: devops\""
