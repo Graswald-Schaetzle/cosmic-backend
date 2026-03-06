@@ -8,18 +8,24 @@ const spaceRoutes = async (app, supabase) => {
       return res.status(500).json({ error: spaceError.message });
     }
 
-    const { data: allRooms, error: roomsError } = await supabase
-      .from('space_rooms')
-      .select('*, room:rooms(*)');
+    const spaceIds = spaces.map((s) => s.space_id);
 
-    const { data: allLocations, error: locationsError } = await supabase
-      .from('space_locations')
-      .select('*, location:locations(*)');
+    const [
+      { data: rooms, error: roomsError },
+      { data: locations, error: locationsError },
+    ] = await Promise.all([
+      spaceIds.length
+        ? supabase.from('rooms').select('*').in('space_id', spaceIds)
+        : { data: [], error: null },
+      spaceIds.length
+        ? supabase.from('locations').select('*').in('space_id', spaceIds)
+        : { data: [], error: null },
+    ]);
 
     const result = spaces.map((space) => ({
       ...space,
-      rooms: allRooms.filter((r) => r.space_id === space.space_id),
-      locations: allLocations.filter((t) => t.space_id === space.space_id),
+      rooms: (rooms || []).filter((r) => r.space_id === space.space_id),
+      locations: (locations || []).filter((l) => l.space_id === space.space_id),
     }));
 
     res.json({
@@ -43,22 +49,21 @@ const spaceRoutes = async (app, supabase) => {
       return res.status(404).json({ error: 'Space not found' });
     }
 
-    const { data: rooms, error: roomsError } = await supabase
-      .from('space_rooms')
-      .select('*, room:rooms(*)')
-      .eq('space_id', id);
-
-    const { data: locations, error: locationsError } = await supabase
-      .from('space_locations')
-      .select('*, location:location(*)');
+    const [
+      { data: rooms, error: roomsError },
+      { data: locations, error: locationsError },
+    ] = await Promise.all([
+      supabase.from('rooms').select('*').eq('space_id', id),
+      supabase.from('locations').select('*').eq('space_id', id),
+    ]);
 
     res.json({
       space,
-      rooms,
-      locations,
+      rooms: rooms || [],
+      locations: locations || [],
       errors: {
         rooms: roomsError?.message || null,
-        tags: locationsError?.message || null,
+        locations: locationsError?.message || null,
       },
     });
   });

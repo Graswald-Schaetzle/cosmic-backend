@@ -29,8 +29,9 @@ const documentRoutes = async (app, supabase) => {
         return res.status(500).json({ error: uploadResult.error.message });
 
       const filePath = uploadResult.data.path;
-      documentData.file_url = filePath;
-      documentData.user_id = user_id;
+      documentData.uploaded_by_user_id = user_id;
+      documentData.storage_path = filePath;
+      documentData.mime_type = file.mimetype;
 
       const insertResult = await supabase
         .from('documents')
@@ -55,9 +56,10 @@ const documentRoutes = async (app, supabase) => {
     if (error || !data)
       return res.status(404).json({ error: 'Document not found' });
 
+    const storagePath = data.storage_path || data.file_url;
     const { data: fileData, error: fileError } = await supabase.storage
       .from('documents')
-      .createSignedUrl(data.file_url, 60 * 60); // 1 час
+      .createSignedUrl(storagePath, 60 * 60);
 
     if (fileError) return res.status(500).json({ error: fileError.message });
 
@@ -82,10 +84,11 @@ const documentRoutes = async (app, supabase) => {
 
     const documentsWithUrls = await Promise.all(
       data.map(async (doc) => {
-        if (doc.file_url) {
+        const storagePath = doc.storage_path || doc.file_url;
+        if (storagePath) {
           const { data: fileData, error: fileError } = await supabase.storage
             .from('documents')
-            .createSignedUrl(doc.file_url, 60 * 60);
+            .createSignedUrl(storagePath, 60 * 60);
           if (fileError) {
             return {
               ...doc,
@@ -106,41 +109,20 @@ const documentRoutes = async (app, supabase) => {
     const { data, error } = await supabase
       .from('documents')
       .select('*')
-      .eq('user_id', user_id);
+      .eq('uploaded_by_user_id', user_id);
 
     res.json({ data, error });
   });
 
   app.get('/all_documents', async (req, res) => {
-    const { floor_id, room_id, location_id } = req.query;
+    const { floor_id, room_id, location_id, space_id } = req.query;
 
     let query = supabase.from('documents').select('*');
 
-    if (floor_id) {
-      const { data: roomsOnFloor, error: roomsError } = await supabase
-        .from('rooms')
-        .select('room_id')
-        .eq('floor_id', floor_id);
-
-      if (roomsError) {
-        return res.status(500).json({ error: roomsError });
-      }
-
-      const roomIdsOnFloor = roomsOnFloor.map((r) => r.room_id);
-
-      query = query.in(
-        'room_id',
-        roomIdsOnFloor.length ? roomIdsOnFloor : [-1],
-      );
-    }
-
-    if (room_id) {
-      query = query.eq('room_id', room_id);
-    }
-
-    if (location_id) {
-      query = query.eq('location_id', location_id);
-    }
+    if (space_id) query = query.eq('space_id', space_id);
+    if (floor_id) query = query.eq('floor_id', floor_id);
+    if (room_id) query = query.eq('room_id', room_id);
+    if (location_id) query = query.eq('location_id', location_id);
 
     const { data: documents, error: documentsError } = await query;
 
@@ -152,28 +134,34 @@ const documentRoutes = async (app, supabase) => {
       ...new Set(documents.map((d) => d.room_id).filter(Boolean)),
     ];
 
-    const { data: rooms, error: roomsError } = await supabase
-      .from('rooms')
-      .select('room_id, name, floor_id')
-      .in('room_id', roomIds);
+    const { data: rooms, error: roomsError } = roomIds.length
+      ? await supabase
+          .from('rooms')
+          .select('room_id, name, floor_id')
+          .in('room_id', roomIds)
+      : { data: [], error: null };
 
     if (roomsError) {
       return res.status(500).json({ error: roomsError });
     }
 
-    const floorIds = [...new Set(rooms.map((r) => r.floor_id).filter(Boolean))];
+    const floorIds = [
+      ...new Set((rooms || []).map((r) => r.floor_id).filter(Boolean)),
+    ];
 
-    const { data: floors, error: floorsError } = await supabase
-      .from('floors')
-      .select('floor_id, name')
-      .in('floor_id', floorIds);
+    const { data: floors, error: floorsError } = floorIds.length
+      ? await supabase
+          .from('floors')
+          .select('floor_id, name')
+          .in('floor_id', floorIds)
+      : { data: [], error: null };
 
     if (floorsError) {
       return res.status(500).json({ error: floorsError });
     }
 
-    const floorsWithRooms = floors.map((floor) => {
-      const roomsOnFloor = rooms
+    const floorsWithRooms = (floors || []).map((floor) => {
+      const roomsOnFloor = (rooms || [])
         .filter((r) => r.floor_id === floor.floor_id)
         .map((room) => {
           const docsForRoom = documents.filter(
@@ -199,10 +187,8 @@ const documentRoutes = async (app, supabase) => {
       };
     });
 
-    const totalDocumentsCount = documents.length;
-
     res.json({
-      total_documents: totalDocumentsCount,
+      total_documents: documents.length,
       floors: floorsWithRooms,
     });
   });
@@ -215,15 +201,16 @@ const documentRoutes = async (app, supabase) => {
 
     const { data: oldDoc, error: fetchError } = await supabase
       .from('documents')
-      .select('file_url')
+      .select('storage_path, file_url')
       .eq('document_id', req.params.id)
       .single();
 
     if (fetchError)
       return res.status(404).json({ error: 'Document not found' });
 
-    if (oldDoc && oldDoc.file_url) {
-      await supabase.storage.from('documents').remove([oldDoc.file_url]);
+    const oldPath = oldDoc?.storage_path || oldDoc?.file_url;
+    if (oldPath) {
+      await supabase.storage.from('documents').remove([oldPath]);
     }
 
     const fileBuffer = fs.readFileSync(file.path);
@@ -240,7 +227,8 @@ const documentRoutes = async (app, supabase) => {
       return res.status(500).json({ error: uploadResult.error.message });
 
     const filePath = uploadResult.data.path;
-    documentData.file_url = filePath;
+    documentData.storage_path = filePath;
+    documentData.mime_type = file.mimetype;
 
     const updateResult = await supabase
       .from('documents')
@@ -257,7 +245,7 @@ const documentRoutes = async (app, supabase) => {
   app.delete('/document/:id', tokenValidator('jwt'), async (req, res) => {
     const { data: docData, error: fetchError } = await supabase
       .from('documents')
-      .select('file_url')
+      .select('storage_path, file_url')
       .eq('document_id', req.params.id)
       .single();
 
@@ -267,7 +255,7 @@ const documentRoutes = async (app, supabase) => {
         .json({ error: 'Document not found or error fetching document.' });
     }
 
-    const filePath = docData.file_url;
+    const filePath = docData.storage_path || docData.file_url;
 
     const { error: storageError } = await supabase.storage
       .from('documents')

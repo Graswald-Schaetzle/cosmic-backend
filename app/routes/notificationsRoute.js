@@ -44,7 +44,7 @@ const notificationRoutes = async (app, supabase) => {
             room_id: room.room_id,
             room_name: room.name,
             notifications: notifs,
-            newCount: notifs.filter((n) => n.is_new).length,
+            unreadCount: notifs.filter((n) => n.read_at === null).length,
           };
         })
         .filter(Boolean);
@@ -57,21 +57,18 @@ const notificationRoutes = async (app, supabase) => {
 
       if (floorError) return res.status(500).json({ error: floorError });
 
-      const floorNewCount = notifications.filter((n) => n.is_new).length;
-
       return res.json({
         floor_id: floorData.floor_id,
         floor_name: floorData.name,
-        newCount: floorNewCount,
+        unreadCount: notifications.filter((n) => n.read_at === null).length,
         rooms: notificationsByRoom,
       });
     } else {
-      let query = supabase
+      const { data: notifications, error } = await supabase
         .from('notifications')
         .select('*')
         .order('created_at', { ascending: false });
 
-      const { data: notifications, error } = await query;
       if (error) return res.status(500).json({ error });
 
       const floorIds = [
@@ -82,16 +79,20 @@ const notificationRoutes = async (app, supabase) => {
       ];
 
       const [{ data: floors }, { data: rooms }] = await Promise.all([
-        supabase.from('floors').select('*').in('floor_id', floorIds),
-        supabase.from('rooms').select('*').in('room_id', roomIds),
+        floorIds.length
+          ? supabase.from('floors').select('*').in('floor_id', floorIds)
+          : { data: [] },
+        roomIds.length
+          ? supabase.from('rooms').select('*').in('room_id', roomIds)
+          : { data: [] },
       ]);
 
-      const sortedFloors = floors.sort(
+      const sortedFloors = (floors || []).sort(
         (a, b) => Number(a.name) - Number(b.name),
       );
 
       const grouped = sortedFloors.map((floor) => {
-        const floorRooms = rooms.filter(
+        const floorRooms = (rooms || []).filter(
           (room) => room.floor_id === floor.floor_id,
         );
 
@@ -106,7 +107,7 @@ const notificationRoutes = async (app, supabase) => {
               room_id: room.room_id,
               room_name: room.name,
               notifications: notifs,
-              newCount: notifs.filter((n) => n.is_new).length,
+              unreadCount: notifs.filter((n) => n.read_at === null).length,
             };
           })
           .filter(Boolean);
@@ -118,24 +119,28 @@ const notificationRoutes = async (app, supabase) => {
         return {
           floor_id: floor.floor_id,
           floor_name: floor.name,
-          newCount: floorNotifs.filter((n) => n.is_new).length,
+          unreadCount: floorNotifs.filter((n) => n.read_at === null).length,
           rooms: roomsWithNotifications,
         };
       });
 
-      const totalNewCount = notifications.filter((n) => n.is_new).length;
+      const totalUnreadCount = notifications.filter(
+        (n) => n.read_at === null,
+      ).length;
 
       return res.json({
-        totalNewCount,
+        totalUnreadCount,
         floors: grouped,
       });
     }
   });
 
   app.put('/notifications/mark-all-read', async (req, res) => {
-    const { data: updatedData, error: updateError } = await supabase
+    const now = new Date().toISOString();
+
+    const { error: updateError } = await supabase
       .from('notifications')
-      .update({ is_new: false })
+      .update({ read_at: now, is_new: false })
       .gt('notification_id', 0);
 
     if (updateError) {
@@ -159,7 +164,6 @@ const notificationRoutes = async (app, supabase) => {
         .from('notifications')
         .select('*')
         .not('task_id', 'is', null)
-        .order('is_new', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) return res.status(500).json({ error });
@@ -191,11 +195,6 @@ const notificationRoutes = async (app, supabase) => {
       notification_id,
     };
 
-    let query = supabase
-      .from('notifications')
-      .update({ is_new: false })
-      .select('*');
-
     const validFilter = Object.entries(filterFields).find(
       ([_, v]) => v !== undefined,
     );
@@ -205,10 +204,13 @@ const notificationRoutes = async (app, supabase) => {
     }
 
     const [field, value] = validFilter;
+    const now = new Date().toISOString();
 
-    query = query.eq(field, value);
-
-    const { data, error } = await query;
+    const { data, error } = await supabase
+      .from('notifications')
+      .update({ read_at: now, is_new: false })
+      .eq(field, value)
+      .select('*');
 
     if (error) {
       return res.status(500).json({ error: error.message });
@@ -274,13 +276,7 @@ const notificationRoutes = async (app, supabase) => {
         : { data: null, error: null },
     ]);
 
-    if (
-      taskError ||
-      roomError ||
-      floorError ||
-      locationError ||
-      documentError
-    ) {
+    if (taskError || roomError || floorError || locationError || documentError) {
       return res.status(500).json({
         errors: {
           taskError,
@@ -292,14 +288,7 @@ const notificationRoutes = async (app, supabase) => {
       });
     }
 
-    res.json({
-      notification,
-      task,
-      room,
-      floor,
-      location,
-      document,
-    });
+    res.json({ notification, task, room, floor, location, document });
   });
 
   app.delete('/notifications/:id', async (req, res) => {
@@ -308,7 +297,7 @@ const notificationRoutes = async (app, supabase) => {
     const { data, error } = await supabase
       .from('notifications')
       .delete()
-      .eq('id', id);
+      .eq('notification_id', id);
 
     res.json({ data, error });
   });
