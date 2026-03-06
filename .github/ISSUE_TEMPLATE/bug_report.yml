@@ -1,0 +1,82 @@
+name: Bug Report
+description: Einen Fehler im Backend melden
+title: "[Bug]: "
+labels: ["bug", "triage"]
+projects: []
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke, dass du dir die Zeit nimmst, diesen Fehler zu melden!
+
+  - type: dropdown
+    id: thema
+    attributes:
+      label: Thema / API-Bereich
+      description: Welcher Teil des Backends ist betroffen?
+      options:
+        - Authentifizierung / JWT
+        - Spaces (Haupt-Aggregat)
+        - Tasks / Aufgaben API
+        - Dokumente API
+        - Benachrichtigungen API
+        - Matterport Integration
+        - Supabase / Datenbank
+        - Middleware / Security
+        - CI/CD / Deployment
+        - Swagger / API-Docs
+        - Sonstiges
+    validations:
+      required: true
+
+  - type: input
+    id: endpoint
+    attributes:
+      label: Betroffener API-Endpunkt
+      placeholder: z.B. GET /api/spaces/:id
+
+  - type: textarea
+    id: beschreibung
+    attributes:
+      label: Fehlerbeschreibung
+      description: Was ist passiert? Was hast du erwartet?
+    validations:
+      required: true
+
+  - type: textarea
+    id: schritte
+    attributes:
+      label: Schritte zur Reproduktion
+      placeholder: |
+        1. Request an '...' senden
+        2. Mit Body '...'
+        3. Fehler erscheint
+    validations:
+      required: true
+
+  - type: textarea
+    id: response
+    attributes:
+      label: Tatsächliche Response / Fehlermeldung
+      render: json
+      placeholder: HTTP Status Code und Response Body
+
+  - type: dropdown
+    id: prioritaet
+    attributes:
+      label: Priorität
+      options:
+        - Kritisch (Produktionsausfall)
+        - Hoch (wichtige Funktion kaputt)
+        - Mittel (Workaround vorhanden)
+        - Niedrig (minor)
+    validations:
+      required: true
+
+  - type: textarea
+    id: kontext
+    attributes:
+      label: Zusätzlicher Kontext
+      description: Logs, Stack Traces, Screenshots

@@ -1,0 +1,93 @@
+# GitHub Labels für cosmic-backend
+# Diese Datei dokumentiert die Themen-Labels für das Projekt-Board.
+
+# ─── Themen-Labels (für Projekt-Board-Filterung) ───────────────────────────
+- name: "thema: spaces"
+  color: "5319e7"
+  description: Spaces API - Haupt-Aggregat und Kernentität
+
+- name: "thema: tasks-api"
+  color: "0075ca"
+  description: Tasks und Aufgaben-Endpunkte
+
+- name: "thema: dokumente-api"
+  color: "0052cc"
+  description: Dokumentenverwaltung und Datei-Endpunkte
+
+- name: "thema: benachrichtigungen-api"
+  color: "e4e669"
+  description: Notification-Endpunkte
+
+- name: "thema: auth"
+  color: "d93f0b"
+  description: JWT-Authentifizierung und Sicherheit
+
+- name: "thema: matterport"
+  color: "bfd4f2"
+  description: Matterport API-Integration
+
+- name: "thema: datenbank"
+  color: "c5def5"
+  description: Supabase, Datenbankschema und Migrationen
+
+- name: "thema: api-docs"
+  color: "f9d0c4"
+  description: Swagger/OpenAPI Dokumentation
+
+- name: "thema: security"
+  color: "b60205"
+  description: Sicherheit und Zugriffsschutz
+
+- name: "thema: performance"
+  color: "fbca04"
+  description: Performance und Caching
+
+- name: "thema: devops"
+  color: "b60205"
+  description: CI/CD, Deployment und Infrastruktur
+
+# ─── Status-Labels ──────────────────────────────────────────────────────────
+- name: "status: backlog"
+  color: "eeeeee"
+  description: Im Backlog, noch nicht priorisiert
+
+- name: "status: bereit"
+  color: "0e8a16"
+  description: Bereit zur Bearbeitung
+
+- name: "status: in-bearbeitung"
+  color: "fbca04"
+  description: Wird gerade bearbeitet
+
+- name: "status: review"
+  color: "e4e669"
+  description: Wartet auf Code-Review
+
+- name: "status: blockiert"
+  color: "b60205"
+  description: Durch externe Abhängigkeit blockiert
+
+# ─── Typ-Labels ─────────────────────────────────────────────────────────────
+- name: "bug"
+  color: "d73a4a"
+  description: Etwas funktioniert nicht richtig
+
+- name: "enhancement"
+  color: "a2eeef"
+  description: Neue Funktion oder Verbesserung
+
+- name: "task"
+  color: "7057ff"
+  description: Entwicklungsaufgabe
+
+- name: "triage"
+  color: "e6e6e6"
+  description: Muss noch bewertet werden
+
+- name: "needs-discussion"
+  color: "cc317c"
+  description: Erfordert Diskussion
+
+- name: "dokumentation"
+  color: "0075ca"
+  description: Dokumentationsaufgabe
