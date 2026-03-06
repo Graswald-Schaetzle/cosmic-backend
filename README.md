@@ -10,6 +10,7 @@ The backend domain is rooted in **Space**, the primary aggregate representing a 
 - [Domain model (`Space` and related entities)](docs/domain-model.md)
 - [Architecture overview](docs/architecture.md)
 - [ER model v1 diagram](docs/diagrams/er-model-v1.md)
+- [ER model v2 diagram](docs/diagrams/er-model-v2.md)
 - [Architecture context diagram](docs/diagrams/architecture-context.md)
 
 ---

@@ -24,11 +24,12 @@ flowchart LR
 3. Optionally, the API creates derived records (for example `notifications`) for related entities.
 4. The API returns the created task to the client.
 
-### 2) Document upload with signed URL
-1. The client requests an upload signed URL from the Express API.
-2. The API creates a time-limited signed URL via Supabase Storage and returns it.
-3. The client uploads the file directly to Supabase Storage (without streaming file content through the API).
-4. Then the Express API stores metadata (for example `file_url`, `task_id`, `user_id`) in `documents` in the Supabase DB.
+### 2) Document upload via API
+1. The client sends the file to the Express API as a `multipart/form-data` request.
+2. The API receives the file via `multer` and writes it temporarily to the local `uploads/` directory.
+3. The API reads the file from disk and uploads it to the Supabase Storage bucket `documents`.
+4. The API persists metadata (`storage_path`, `mime_type`, references to task/room/location) in the `documents` table (Supabase DB).
+5. For downloads, the API generates a time-limited signed URL (`createSignedUrl`, 1 hour) on demand and returns it to the client.
 
 ### 3) Matterport sync
 1. The Express API calls the Matterport API to read external room/tag information.

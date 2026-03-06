@@ -45,9 +45,6 @@ The server registers route modules with a shared `supabase` client:
 - `listRoutes`
 - `notificationRoutes`
 - `floorsRoutes`
-
-Additionally present in the current codebase:
-
 - `assetRoutes`
 - `eventRoutes`
 - `spaceMembershipRoutes`
