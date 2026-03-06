@@ -3,6 +3,15 @@
 Welcome! This guide will help you run the **Cosmic WebApp API Backend** on your local machine.  
 Even if you’re not a developer — just follow the steps carefully 👇
 
+## Documentation
+
+The backend domain is rooted in **Space**, the primary aggregate representing a digital environment and anchoring related entities, permissions, and integrations.
+
+- [Domain model (`Space` and related entities)](docs/domain-model.md)
+- [Architecture overview](docs/architecture.md)
+- [ER model v1 diagram](docs/diagrams/er-model-v1.md)
+- [Architecture context diagram](docs/diagrams/architecture-context.md)
+
 ---
 
 ## 🚀 How to Start the API Backend (Development Mode)
