@@ -1,0 +1,7 @@
+# Core pipeline dependencies (PyTorch and Nerfstudio installed via Dockerfile)
+google-cloud-storage==2.14.0
+supabase==2.3.0
+opencv-python-headless==4.9.0.80
+Pillow==10.2.0
+requests==2.31.0
+numpy>=1.24.0
