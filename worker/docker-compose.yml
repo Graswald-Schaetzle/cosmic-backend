@@ -1,0 +1,60 @@
+# =============================================================================
+# Docker Compose für lokale Entwicklung der 3D Pipeline
+# =============================================================================
+# Startet den Worker gegen ein lokales Fake-GCS (mit lokalem Dateisystem)
+#
+# Usage:
+#   # Erst Video ins test-data Verzeichnis legen:
+#   mkdir -p worker/test-data/inputs/job-001
+#   cp /dein/video.mp4 worker/test-data/inputs/job-001/input.mp4
+#
+#   # Dann starten:
+#   docker compose -f worker/docker-compose.yml up
+# =============================================================================
+
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    image: cosmic-3d-worker-dev
+    runtime: nvidia           # Entfernen wenn keine NVIDIA GPU vorhanden
+    environment:
+      - JOB_ID=${JOB_ID:-local-test-001}
+      - GCS_BUCKET=local      # Trigger local filesystem mode
+      - INPUT_PATH=inputs/${JOB_ID:-local-test-001}/input.mp4
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - CALLBACK_URL=http://backend:3000/reconstruction-jobs/${JOB_ID:-local-test-001}/callback
+      - CALLBACK_SECRET=${CALLBACK_SECRET:-dev-secret}
+      - LOCAL_STORAGE_ROOT=/data  # Used when GCS_BUCKET=local
+    volumes:
+      - ./test-data:/data
+      - worker-workspace:/workspace
+    networks:
+      - pipeline
+
+  # Lokales Backend für Callbacks (optional)
+  backend:
+    image: node:23-alpine
+    working_dir: /app
+    command: ["node", "server.js"]
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - PORT=3000
+    volumes:
+      - ..:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    networks:
+      - pipeline
+    profiles:
+      - with-backend  # Nur starten wenn: docker compose --profile with-backend up
+
+volumes:
+  worker-workspace:
+
+networks:
+  pipeline:
