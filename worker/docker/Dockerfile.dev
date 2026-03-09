@@ -32,17 +32,18 @@ ENV PYTHONUNBUFFERED=1
 COPY --from=colmap-base /usr/local/bin/colmap /usr/local/bin/colmap
 COPY --from=colmap-base /usr/local/lib/ /usr/local/lib/
 
-# System dependencies
+# System dependencies (use generic names to match base image's Ubuntu version)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     ffmpeg \
-    libboost-program-options1.74.0 \
-    libboost-filesystem1.74.0 \
-    libboost-graph1.74.0 \
-    libflann1.9 \
-    libfreeimage3 \
-    libgoogle-glog0v5 \
-    libgflags2.2 \
-    libsqlite3-0 \
+    libboost-program-options-dev \
+    libboost-filesystem-dev \
+    libboost-graph-dev \
+    libflann-dev \
+    libfreeimage-dev \
+    libgoogle-glog-dev \
+    libgflags-dev \
+    libsqlite3-dev \
     libcgal-dev \
     wget \
     curl \
@@ -54,8 +55,7 @@ RUN pip install --no-cache-dir \
     nerfstudio==1.1.0 \
     google-cloud-storage==2.14.0 \
     supabase==2.3.0 \
-    opencv-python-headless==4.9.0.80 \
-    Pillow==10.2.0 \
+    opencv-python-headless>=4.9.0 \
     requests==2.31.0
 
 RUN mkdir -p /workspace
