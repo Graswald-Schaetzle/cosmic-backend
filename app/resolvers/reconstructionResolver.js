@@ -56,6 +56,12 @@ async function submitBatchJob(jobId, inputPath, supabaseUrl, supabaseKey) {
     );
   }
 
+  if (!CALLBACK_BASE_URL) {
+    throw new Error(
+      'CALLBACK_BASE_URL must be set to a publicly reachable URL so the worker can post status updates',
+    );
+  }
+
   const client = getBatchClient();
 
   const batchJobId = `recon-${jobId}-${Date.now()}`;
