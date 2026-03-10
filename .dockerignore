@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+infra/gcp-service-account-key.json
+worker/
+docs/
+wiki/
+supabase/
+.git
+.github
+*.md
