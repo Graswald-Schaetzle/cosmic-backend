@@ -1,0 +1,28 @@
+name: Run Supabase Migration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    name: Run reconstruction_jobs migration
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run migration via psql
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          sudo apt-get install -y postgresql-client
+          psql "$SUPABASE_DB_URL" \
+            -f supabase/migrations/20260309000001_reconstruction_jobs.sql \
+            -v ON_ERROR_STOP=1
+
+      - name: Verify migration
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "$SUPABASE_DB_URL" -c "\d reconstruction_jobs"
