@@ -1,4 +1,4 @@
-name: Build
+name: Build & Deploy Backend
 
 on:
   push:
@@ -6,10 +6,18 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  PROJECT_ID: cosmic-489720
+  REGION: europe-west4
+  REGISTRY: europe-west4-docker.pkg.dev
+  AR_REPOSITORY: cosmic-backend
+  SERVICE: cosmic-backend
+  IMAGE: europe-west4-docker.pkg.dev/cosmic-489720/cosmic-backend/backend
+
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    name: Build backend
+    name: Build and deploy backend
 
     steps:
     - name: Checkout code
@@ -21,18 +29,43 @@ jobs:
       id: get_tag
       run: |
         git fetch --tags
-        latest_tag=$(git describe --tags --abbrev=0 || echo "v0.0.0")
+        latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
         echo "Latest tag: $latest_tag"
         echo "latest_tag=$latest_tag" >> $GITHUB_ENV
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
       with:
-        node-version: '22'
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Install dependencies
-      run: yarn install
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
 
-    - name: Build
+    - name: Configure Docker for Artifact Registry
+      run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+    - name: Build and push Docker image
       run: |
-        yarn build
+        docker build \
+          -t ${{ env.IMAGE }}:${{ github.sha }} \
+          -t ${{ env.IMAGE }}:latest \
+          .
+        docker push ${{ env.IMAGE }}:${{ github.sha }}
+        docker push ${{ env.IMAGE }}:latest
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy ${{ env.SERVICE }} \
+          --image=${{ env.IMAGE }}:${{ github.sha }} \
+          --region=${{ env.REGION }} \
+          --platform=managed \
+          --allow-unauthenticated \
+          --port=3000 \
+          --service-account=cosmic-backend-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+          --update-env-vars="SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_KEY=${{ secrets.SUPABASE_KEY }},COOKIE_SECRET=${{ secrets.COOKIE_SECRET }},ACCESS_TOKEN_SECRET=${{ secrets.ACCESS_TOKEN_SECRET }},REFRESH_TOKEN_SECRET=${{ secrets.REFRESH_TOKEN_SECRET }},API_LOGIN=${{ secrets.API_LOGIN }},API_PASS=${{ secrets.API_PASS }},MATTERPORT_MODEL_ID=${{ secrets.MATTERPORT_MODEL_ID }},MATTERPORT_API_KEY=${{ secrets.MATTERPORT_API_KEY }},GCP_PROJECT_ID=${{ env.PROJECT_ID }},GCP_REGION=${{ env.REGION }},GCS_3D_PIPELINE_BUCKET=cosmic-3d-pipeline,WORKER_DOCKER_IMAGE=europe-west4-docker.pkg.dev/cosmic-489720/cosmic-workers/3d-worker:latest,CALLBACK_BASE_URL=${{ secrets.BACKEND_URL }},CALLBACK_SECRET=${{ secrets.CALLBACK_SECRET }}"
+
+    - name: Show deployed URL
+      run: |
+        gcloud run services describe ${{ env.SERVICE }} \
+          --region=${{ env.REGION }} \
+          --format='value(status.url)'
