@@ -8,7 +8,7 @@ const {
   CALLBACK_SECRET,
 } = process.env;
 
-const requiredEnvVars = { SUPABASE_URL, SUPABASE_KEY, COOKIE_SECRET, CALLBACK_BASE_URL, CALLBACK_SECRET };
+const requiredEnvVars = { SUPABASE_URL, SUPABASE_KEY, COOKIE_SECRET };
 for (const [name, value] of Object.entries(requiredEnvVars)) {
   if (!value) {
     console.error(`Missing required environment variable: ${name}`);
