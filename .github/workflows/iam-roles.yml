@@ -1,0 +1,58 @@
+name: Grant Service Account IAM Roles
+
+on:
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: cosmic-489720
+  SA: claude-code@cosmic-489720.iam.gserviceaccount.com
+
+jobs:
+  grant-iam-roles:
+    runs-on: ubuntu-latest
+    name: Check and grant IAM roles for Cloud Batch
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Show current IAM bindings for SA
+        run: |
+          echo "=== Current IAM roles for $SA ==="
+          gcloud projects get-iam-policy $PROJECT_ID \
+            --flatten="bindings[].members" \
+            --filter="bindings.members:$SA" \
+            --format="table(bindings.role)"
+
+      - name: Grant missing IAM roles
+        run: |
+          ROLES=(
+            "roles/batch.jobsEditor"
+            "roles/batch.agentReporter"
+            "roles/compute.admin"
+            "roles/storage.objectAdmin"
+            "roles/iam.serviceAccountUser"
+            "roles/logging.logWriter"
+            "roles/artifactregistry.reader"
+          )
+          for ROLE in "${ROLES[@]}"; do
+            echo "Granting $ROLE..."
+            gcloud projects add-iam-policy-binding $PROJECT_ID \
+              --member="serviceAccount:$SA" \
+              --role="$ROLE" \
+              --condition=None \
+              --quiet && echo "✅ $ROLE granted" || echo "⚠️ $ROLE failed (may already exist or missing permission)"
+          done
+
+      - name: Verify final IAM bindings
+        run: |
+          echo "=== Final IAM roles for $SA ==="
+          gcloud projects get-iam-policy $PROJECT_ID \
+            --flatten="bindings[].members" \
+            --filter="bindings.members:$SA" \
+            --format="table(bindings.role)"
