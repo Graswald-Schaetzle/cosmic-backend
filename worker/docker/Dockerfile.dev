@@ -1,0 +1,68 @@
+# =============================================================================
+# Cosmic 3D Pipeline Worker - DEV IMAGE (schneller Build)
+# =============================================================================
+# Verwendet pre-built COLMAP + Nerfstudio statt selbst zu kompilieren.
+# Build-Zeit: ~10 Min statt ~60 Min.
+#
+# Build:
+#   docker build -t cosmic-3d-worker-dev -f worker/docker/Dockerfile.dev worker/
+#
+# Lokaler Test (ohne GPU):
+#   docker run --rm \
+#     -e JOB_ID=local-test \
+#     -e GCS_BUCKET=local \
+#     -e INPUT_PATH=input/test.mp4 \
+#     -e SUPABASE_URL=http://host.docker.internal:54321 \
+#     -e SUPABASE_KEY=your-key \
+#     -v $(pwd)/worker/test-data:/workspace/test \
+#     cosmic-3d-worker-dev
+#
+# Mit GPU (auf GCP oder lokalem CUDA-System):
+#   docker run --gpus all ... cosmic-3d-worker-dev
+# =============================================================================
+
+FROM colmap/colmap:latest AS colmap-base
+
+FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# Copy pre-built COLMAP binaries from colmap image
+COPY --from=colmap-base /usr/local/bin/colmap /usr/local/bin/colmap
+COPY --from=colmap-base /usr/local/lib/ /usr/local/lib/
+
+# System dependencies (use generic names to match base image's Ubuntu version)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ffmpeg \
+    libboost-program-options-dev \
+    libboost-filesystem-dev \
+    libboost-graph-dev \
+    libflann-dev \
+    libfreeimage-dev \
+    libgoogle-glog-dev \
+    libgflags-dev \
+    libsqlite3-dev \
+    libcgal-dev \
+    wget \
+    curl \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Nerfstudio + pipeline dependencies
+RUN pip install --no-cache-dir \
+    nerfstudio==1.1.0 \
+    google-cloud-storage==2.14.0 \
+    supabase==2.3.0 \
+    opencv-python-headless>=4.9.0 \
+    requests==2.31.0
+
+RUN mkdir -p /workspace
+WORKDIR /workspace
+
+COPY pipeline/ /app/pipeline/
+COPY scripts/ /app/scripts/
+RUN chmod +x /app/scripts/*.sh
+
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]

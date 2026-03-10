@@ -18,7 +18,6 @@ import time
 from pathlib import Path
 
 import requests
-from google.cloud import storage
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,6 +25,10 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger("pipeline")
+
+# Local mode: set GCS_BUCKET=local to use filesystem instead of GCS
+LOCAL_MODE = os.environ.get("GCS_BUCKET", "").lower() == "local"
+LOCAL_STORAGE_ROOT = os.environ.get("LOCAL_STORAGE_ROOT", "/data")
 
 
 class PipelineError(Exception):
@@ -43,6 +46,7 @@ class Pipeline:
         self.callback_url = args.callback_url
         self.callback_secret = args.callback_secret
         self.workspace = Path(args.workspace) / f"job_{self.job_id}"
+        self.local_mode = LOCAL_MODE
 
         # Working directories
         self.input_dir = self.workspace / "input"
@@ -52,9 +56,15 @@ class Pipeline:
         self.export_dir = self.workspace / "export"
         self.output_dir = self.workspace / "output"
 
-        # GCS client
-        self.gcs = storage.Client()
-        self.bucket = self.gcs.bucket(self.gcs_bucket)
+        # GCS client (only in cloud mode)
+        if not self.local_mode:
+            from google.cloud import storage as gcs_storage
+            self.gcs = gcs_storage.Client()
+            self.bucket = self.gcs.bucket(self.gcs_bucket)
+        else:
+            self.gcs = None
+            self.bucket = None
+            logger.info(f"LOCAL MODE: Using filesystem storage at {LOCAL_STORAGE_ROOT}")
 
         # Metrics
         self.metrics = {
@@ -118,16 +128,23 @@ class Pipeline:
         logger.info(f"Workspace created at {self.workspace}")
 
     def _download_input(self):
-        """Download input file from GCS."""
-        logger.info(f"Downloading input from gs://{self.gcs_bucket}/{self.input_path}")
-        blob = self.bucket.blob(self.input_path)
-
-        if not blob.exists():
-            raise PipelineError(f"Input not found: gs://{self.gcs_bucket}/{self.input_path}")
-
+        """Download input file from GCS or copy from local storage."""
         local_path = self.input_dir / os.path.basename(self.input_path)
-        blob.download_to_filename(str(local_path))
-        logger.info(f"Downloaded to {local_path} ({local_path.stat().st_size / 1024 / 1024:.1f} MB)")
+
+        if self.local_mode:
+            src = Path(LOCAL_STORAGE_ROOT) / self.input_path
+            logger.info(f"LOCAL MODE: Copying input from {src}")
+            if not src.exists():
+                raise PipelineError(f"Input not found at {src}")
+            shutil.copy2(str(src), str(local_path))
+        else:
+            logger.info(f"Downloading input from gs://{self.gcs_bucket}/{self.input_path}")
+            blob = self.bucket.blob(self.input_path)
+            if not blob.exists():
+                raise PipelineError(f"Input not found: gs://{self.gcs_bucket}/{self.input_path}")
+            blob.download_to_filename(str(local_path))
+
+        logger.info(f"Input ready: {local_path} ({local_path.stat().st_size / 1024 / 1024:.1f} MB)")
         return local_path
 
     def _extract_frames(self):
@@ -400,10 +417,16 @@ class Pipeline:
             logger.info("Copied PLY as SPLAT placeholder (viewer supports PLY directly)")
 
     def _upload_to_gcs(self, local_path, gcs_path):
-        """Upload a file to GCS."""
-        blob = self.bucket.blob(gcs_path)
-        blob.upload_from_filename(str(local_path))
-        logger.info(f"Uploaded {local_path.name} -> gs://{self.gcs_bucket}/{gcs_path}")
+        """Upload a file to GCS or copy to local storage."""
+        if self.local_mode:
+            dest = Path(LOCAL_STORAGE_ROOT) / gcs_path
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(local_path), str(dest))
+            logger.info(f"LOCAL MODE: Copied {local_path.name} -> {dest}")
+        else:
+            blob = self.bucket.blob(gcs_path)
+            blob.upload_from_filename(str(local_path))
+            logger.info(f"Uploaded {local_path.name} -> gs://{self.gcs_bucket}/{gcs_path}")
 
     def _update_status(self, status, **kwargs):
         """Update job status via callback URL."""

@@ -13,3 +13,4 @@ yarn-error.log*
 Thumbs.db
 .idea/
 .vscode/
+infra/gcp-service-account-key.json

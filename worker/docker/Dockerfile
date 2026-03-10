@@ -70,8 +70,7 @@ RUN pip install --no-cache-dir nerfstudio==1.1.0
 RUN pip install --no-cache-dir \
     google-cloud-storage==2.14.0 \
     supabase==2.3.0 \
-    opencv-python-headless==4.9.0.80 \
-    Pillow==10.2.0 \
+    opencv-python-headless>=4.9.0 \
     requests==2.31.0
 
 # Create working directory
