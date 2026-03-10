@@ -61,7 +61,7 @@ jobs:
           --platform=managed \
           --allow-unauthenticated \
           --port=3000 \
-          --service-account=cosmic-backend-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+          --service-account=claude-code@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
           --update-env-vars="SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_KEY=${{ secrets.SUPABASE_KEY }},COOKIE_SECRET=${{ secrets.COOKIE_SECRET }},ACCESS_TOKEN_SECRET=${{ secrets.ACCESS_TOKEN_SECRET }},REFRESH_TOKEN_SECRET=${{ secrets.REFRESH_TOKEN_SECRET }},API_LOGIN=${{ secrets.API_LOGIN }},API_PASS=${{ secrets.API_PASS }},MATTERPORT_MODEL_ID=${{ secrets.MATTERPORT_MODEL_ID }},MATTERPORT_API_KEY=${{ secrets.MATTERPORT_API_KEY }},GCP_PROJECT_ID=${{ env.PROJECT_ID }},GCP_REGION=${{ env.REGION }},GCS_3D_PIPELINE_BUCKET=cosmic-3d-pipeline,WORKER_DOCKER_IMAGE=europe-west4-docker.pkg.dev/cosmic-489720/cosmic-workers/3d-worker:latest,CALLBACK_BASE_URL=${{ secrets.BACKEND_URL }},CALLBACK_SECRET=${{ secrets.CALLBACK_SECRET }}"
 
     - name: Show deployed URL
