@@ -4,7 +4,17 @@ const {
   SUPABASE_URL,
   SUPABASE_KEY,
   COOKIE_SECRET,
+  CALLBACK_BASE_URL,
+  CALLBACK_SECRET,
 } = process.env;
+
+const requiredEnvVars = { SUPABASE_URL, SUPABASE_KEY, COOKIE_SECRET, CALLBACK_BASE_URL, CALLBACK_SECRET };
+for (const [name, value] of Object.entries(requiredEnvVars)) {
+  if (!value) {
+    console.error(`Missing required environment variable: ${name}`);
+    process.exit(1);
+  }
+}
 
 const express = require('express');
 const cors = require('cors');
