@@ -12,12 +12,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run migration via psql
+      - name: Install postgresql-client
+        run: sudo apt-get install -y postgresql-client-16
+
+      - name: Run migration via psql (session pooler, IPv4)
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          sudo apt-get install -y postgresql-client
-          psql "$SUPABASE_DB_URL" \
+          # Supabase direct connection is IPv6-only — rewrite URL to session pooler (IPv4)
+          # Direct:  db.<ref>.supabase.co:5432
+          # Pooler:  aws-0-eu-central-1.pooler.supabase.com:5432 (session mode)
+          # Extract project ref from the URL
+          REF=$(echo "$SUPABASE_DB_URL" | sed -n 's|.*db\.\([^.]*\)\.supabase\.co.*|\1|p')
+          echo "Project ref: $REF"
+
+          if [ -z "$REF" ]; then
+            echo "Could not extract project ref — using URL as-is"
+            POOLER_URL="$SUPABASE_DB_URL"
+          else
+            # Replace direct host with session pooler host, user postgres → postgres.<ref>
+            POOLER_URL=$(echo "$SUPABASE_DB_URL" \
+              | sed "s|db\.${REF}\.supabase\.co|aws-0-eu-central-1.pooler.supabase.com|g" \
+              | sed "s|//postgres:|//postgres.${REF}:|g")
+            echo "Using session pooler URL (host replaced)"
+          fi
+
+          psql "$POOLER_URL" \
             -f supabase/migrations/20260309000001_reconstruction_jobs.sql \
             -v ON_ERROR_STOP=1
 
@@ -25,4 +45,10 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          psql "$SUPABASE_DB_URL" -c "\d reconstruction_jobs"
+          REF=$(echo "$SUPABASE_DB_URL" | sed -n 's|.*db\.\([^.]*\)\.supabase\.co.*|\1|p')
+          POOLER_URL=$(echo "$SUPABASE_DB_URL" \
+            | sed "s|db\.${REF}\.supabase\.co|aws-0-eu-central-1.pooler.supabase.com|g" \
+            | sed "s|//postgres:|//postgres.${REF}:|g")
+
+          psql "$POOLER_URL" -c "\d reconstruction_jobs" && \
+          psql "$POOLER_URL" -c "SELECT column_name FROM information_schema.columns WHERE table_name='floors' AND column_name='active_reconstruction_job_id';"
