@@ -1,25 +1,16 @@
 const { Storage } = require('@google-cloud/storage');
-const { BatchServiceClient } = require('@google-cloud/batch').v1;
+const axios = require('axios');
 
 const GCS_BUCKET = process.env.GCS_3D_PIPELINE_BUCKET || 'cosmic-3d-pipeline';
-const GCP_PROJECT = process.env.GCP_PROJECT_ID;
-const GCP_REGION = process.env.GCP_REGION || 'europe-west4';
-// Fallback region with better GPU availability
-const BATCH_REGION = process.env.BATCH_REGION || 'us-central1';
-const WORKER_IMAGE = process.env.WORKER_DOCKER_IMAGE;
 const CALLBACK_BASE_URL = process.env.CALLBACK_BASE_URL;
+const RUNPOD_API_KEY = process.env.RUNPOD_API_KEY;
+const RUNPOD_ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID;
 
 let storage;
-let batchClient;
 
 function getStorage() {
   if (!storage) storage = new Storage();
   return storage;
-}
-
-function getBatchClient() {
-  if (!batchClient) batchClient = new BatchServiceClient();
-  return batchClient;
 }
 
 async function generateSignedUploadUrl(jobId, filename) {
@@ -52,9 +43,9 @@ async function generateSignedDownloadUrl(gcsPath) {
 }
 
 async function submitBatchJob(jobId, inputPath, supabaseUrl, supabaseKey) {
-  if (!GCP_PROJECT || !WORKER_IMAGE) {
+  if (!RUNPOD_API_KEY || !RUNPOD_ENDPOINT_ID) {
     throw new Error(
-      'GCP_PROJECT_ID and WORKER_DOCKER_IMAGE must be set to submit batch jobs',
+      'RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID must be set to submit RunPod jobs',
     );
   }
 
@@ -64,80 +55,29 @@ async function submitBatchJob(jobId, inputPath, supabaseUrl, supabaseKey) {
     );
   }
 
-  const client = getBatchClient();
-
-  const batchJobId = `recon-${jobId}-${Date.now()}`;
-
-  const job = {
-    taskGroups: [
-      {
-        taskCount: 1,
-        taskSpec: {
-          runnables: [
-            {
-              container: {
-                imageUri: WORKER_IMAGE,
-                commands: [],
-              },
-              environment: {
-                variables: {
-                  JOB_ID: String(jobId),
-                  GCS_BUCKET: GCS_BUCKET,
-                  INPUT_PATH: inputPath,
-                  SUPABASE_URL: supabaseUrl,
-                  SUPABASE_KEY: supabaseKey,
-                  CALLBACK_URL: `${CALLBACK_BASE_URL}/reconstruction-jobs/${jobId}/callback`,
-                },
-              },
-            },
-          ],
-          computeResource: {
-            cpuMilli: 8000, // 8 vCPUs
-            memoryMib: 30000, // 30 GB RAM
-          },
-          maxRunDuration: { seconds: 7200 }, // 2 hour timeout
-        },
-      },
-    ],
-    allocationPolicy: {
-      instances: [
-        {
-          policy: {
-            // L4 is more available than T4; g2-standard-8 is the L4 machine type
-            machineType: 'g2-standard-8',
-            accelerators: [
-              {
-                type: 'nvidia-l4',
-                count: 1,
-              },
-            ],
-          },
-          installGpuDrivers: true,
-        },
-      ],
-      location: {
-        // Use BATCH_REGION (us-central1 by default) for better GPU availability
-        allowedLocations: [
-          `zones/${BATCH_REGION}-a`,
-          `zones/${BATCH_REGION}-b`,
-          `zones/${BATCH_REGION}-c`,
-        ],
+  const response = await axios.post(
+    `https://api.runpod.io/v2/${RUNPOD_ENDPOINT_ID}/run`,
+    {
+      input: {
+        job_id: String(jobId),
+        gcs_bucket: GCS_BUCKET,
+        input_path: inputPath,
+        supabase_url: supabaseUrl,
+        supabase_key: supabaseKey,
+        callback_url: `${CALLBACK_BASE_URL}/reconstruction-jobs/${jobId}/callback`,
       },
     },
-    logsPolicy: {
-      destination: 'CLOUD_LOGGING',
+    {
+      headers: {
+        Authorization: `Bearer ${RUNPOD_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
     },
-  };
-
-  const [response] = await client.createJob({
-    parent: `projects/${GCP_PROJECT}/locations/${BATCH_REGION}`,
-    jobId: batchJobId,
-    job,
-  });
+  );
 
   return {
-    batchJobName: response.name,
-    batchJobId,
+    runpodJobId: response.data.id,
+    runpodJobName: `runpod-${jobId}-${response.data.id}`,
   };
 }
 

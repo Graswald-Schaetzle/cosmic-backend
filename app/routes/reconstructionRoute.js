@@ -119,8 +119,8 @@ const reconstructionRoutes = async (app, supabase) => {
             .json({ error: `Cannot start job in status: ${job.status}` });
         }
 
-        // Submit Cloud Batch job
-        const { batchJobName, batchJobId } = await submitBatchJob(
+        // Submit RunPod job
+        const { runpodJobId } = await submitBatchJob(
           job.job_id,
           job.input_storage_path,
           process.env.SUPABASE_URL,
@@ -128,11 +128,12 @@ const reconstructionRoutes = async (app, supabase) => {
         );
 
         // Update job status
+        // NOTE: DB column may need a migration to rename gcp_batch_job_id → runpod_job_id
         const { data: updated, error: updateError } = await supabase
           .from('reconstruction_jobs')
           .update({
             status: 'queued',
-            gcp_batch_job_id: batchJobId,
+            runpod_job_id: runpodJobId,
             updated_at: new Date().toISOString(),
           })
           .eq('job_id', id)
@@ -349,9 +350,8 @@ const reconstructionRoutes = async (app, supabase) => {
             .json({ error: `Job is already in terminal state: ${job.status}` });
         }
 
-        // TODO: Cancel Cloud Batch job if running
-        // const client = getBatchClient();
-        // await client.deleteJob({ name: `projects/...` });
+        // TODO: Cancel RunPod job if running
+        // await axios.post(`https://api.runpod.io/v2/${RUNPOD_ENDPOINT_ID}/cancel/${job.runpod_job_id}`, ...);
 
         const { data, error } = await supabase
           .from('reconstruction_jobs')
