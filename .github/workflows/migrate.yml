@@ -15,20 +15,18 @@ jobs:
       - name: Install postgresql-client
         run: sudo apt-get install -y postgresql-client-16
 
-      - name: Debug connection (no password shown)
+      - name: Debug connection and test
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           CLEAN_URL=$(echo "$SUPABASE_DB_URL" | tr -d '[:space:]')
           echo "URL length: ${#CLEAN_URL}"
-          echo "Host: $(echo $CLEAN_URL | sed 's|.*@\([^:/?]*\).*|\1|')"
-          echo "User: $(echo $CLEAN_URL | sed 's|.*://\([^:]*\):.*|\1|')"
-          # Check if sslmode is already in the URL
-          if echo "$CLEAN_URL" | grep -q "sslmode"; then
-            echo "SSL mode: already set in URL"
-          else
-            echo "SSL mode: will add sslmode=require"
-          fi
+          HOST=$(echo $CLEAN_URL | sed 's|.*@\([^:/]*\).*|\1|')
+          PORT=$(echo $CLEAN_URL | sed 's|.*:\([0-9]*\)/.*|\1|')
+          echo "Host: $HOST"
+          echo "Port: $PORT"
+          echo "--- Testing TCP connection ---"
+          timeout 10 bash -c "cat < /dev/null > /dev/tcp/$HOST/${PORT:-5432}" && echo "TCP OK" || echo "TCP FAILED (connection refused or timeout)"
 
       - name: Run migration via psql
         env:
@@ -36,7 +34,6 @@ jobs:
           PGSSLMODE: require
         run: |
           CLEAN_URL=$(echo "$SUPABASE_DB_URL" | tr -d '[:space:]')
-          # Append sslmode=require if not already present
           if echo "$CLEAN_URL" | grep -q "sslmode"; then
             FINAL_URL="$CLEAN_URL"
           elif echo "$CLEAN_URL" | grep -q "?"; then
@@ -44,9 +41,11 @@ jobs:
           else
             FINAL_URL="${CLEAN_URL}?sslmode=require"
           fi
+          echo "Running psql migration..."
           psql "$FINAL_URL" \
             -f supabase/migrations/20260309000001_reconstruction_jobs.sql \
-            -v ON_ERROR_STOP=1
+            -v ON_ERROR_STOP=1 2>&1
+          echo "Exit code: $?"
 
       - name: Verify migration
         env:
