@@ -4,6 +4,8 @@ const { BatchServiceClient } = require('@google-cloud/batch').v1;
 const GCS_BUCKET = process.env.GCS_3D_PIPELINE_BUCKET || 'cosmic-3d-pipeline';
 const GCP_PROJECT = process.env.GCP_PROJECT_ID;
 const GCP_REGION = process.env.GCP_REGION || 'europe-west4';
+// Fallback region with better GPU availability
+const BATCH_REGION = process.env.BATCH_REGION || 'us-central1';
 const WORKER_IMAGE = process.env.WORKER_DOCKER_IMAGE;
 const CALLBACK_BASE_URL = process.env.CALLBACK_BASE_URL;
 
@@ -114,11 +116,11 @@ async function submitBatchJob(jobId, inputPath, supabaseUrl, supabaseKey) {
         },
       ],
       location: {
-        // Allow all zones in the region to maximize availability
+        // Use BATCH_REGION (us-central1 by default) for better GPU availability
         allowedLocations: [
-          `zones/${GCP_REGION}-a`,
-          `zones/${GCP_REGION}-b`,
-          `zones/${GCP_REGION}-c`,
+          `zones/${BATCH_REGION}-a`,
+          `zones/${BATCH_REGION}-b`,
+          `zones/${BATCH_REGION}-c`,
         ],
       },
     },
@@ -128,7 +130,7 @@ async function submitBatchJob(jobId, inputPath, supabaseUrl, supabaseKey) {
   };
 
   const [response] = await client.createJob({
-    parent: `projects/${GCP_PROJECT}/locations/${GCP_REGION}`,
+    parent: `projects/${GCP_PROJECT}/locations/${BATCH_REGION}`,
     jobId: batchJobId,
     job,
   });
