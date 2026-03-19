@@ -43,12 +43,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
 
-# Build COLMAP from source with CUDA support
+# Build COLMAP from source
+# Note: CUDA is disabled at build time (no CUDA on CI runners).
+# CUDA support is available at runtime on GPU nodes via the nvidia/cuda base image.
 RUN git clone --branch 3.9.1 --depth 1 https://github.com/colmap/colmap.git /tmp/colmap \
     && cd /tmp/colmap \
     && mkdir build && cd build \
     && cmake .. \
-        -DCMAKE_CUDA_ARCHITECTURES="75;86" \
+        -DCUDA_ENABLED=OFF \
         -DCMAKE_BUILD_TYPE=Release \
     && make -j$(nproc) \
     && make install \
