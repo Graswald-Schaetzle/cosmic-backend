@@ -36,6 +36,13 @@ jobs:
             -f supabase/migrations/20260309000001_reconstruction_jobs.sql \
             -v ON_ERROR_STOP=1 2>&1 | tee -a $GITHUB_STEP_SUMMARY
 
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "--- Rename gcp_batch_job_id → runpod_job_id ---" >> $GITHUB_STEP_SUMMARY
+
+          psql "$FINAL_URL" \
+            -f supabase/migrations/20260319000001_rename_batch_job_id_to_runpod.sql \
+            -v ON_ERROR_STOP=1 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+
           EXIT=$?
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "Exit code: $EXIT" >> $GITHUB_STEP_SUMMARY
