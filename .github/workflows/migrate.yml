@@ -15,7 +15,7 @@ jobs:
       - name: Install postgresql-client
         run: sudo apt-get install -y postgresql-client-16
 
-      - name: Run migration (capture errors)
+      - name: Run migration (errors written to summary)
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           PGSSLMODE: require
@@ -28,21 +28,18 @@ jobs:
           else
             FINAL_URL="${CLEAN_URL}?sslmode=require"
           fi
-          echo "=== Attempting psql connection ==="
+
+          echo "## psql output" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
           psql "$FINAL_URL" \
             -f supabase/migrations/20260309000001_reconstruction_jobs.sql \
-            -v ON_ERROR_STOP=1 2>&1 | tee /tmp/psql_output.txt
-          EXIT=${PIPESTATUS[0]}
-          echo "psql exit code: $EXIT"
-          exit $EXIT
+            -v ON_ERROR_STOP=1 >> $GITHUB_STEP_SUMMARY 2>&1
 
-      - name: Upload error log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: psql-error-log
-          path: /tmp/psql_output.txt
-          retention-days: 3
+          EXIT=$?
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "Exit code: $EXIT" >> $GITHUB_STEP_SUMMARY
+          exit $EXIT
 
       - name: Verify migration
         env:
