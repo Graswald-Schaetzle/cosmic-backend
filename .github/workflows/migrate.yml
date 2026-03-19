@@ -19,28 +19,49 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          # Strip whitespace/newlines just in case
           CLEAN_URL=$(echo "$SUPABASE_DB_URL" | tr -d '[:space:]')
-          # Show host+user only (mask password)
           echo "URL length: ${#CLEAN_URL}"
           echo "Host: $(echo $CLEAN_URL | sed 's|.*@\([^:/?]*\).*|\1|')"
           echo "User: $(echo $CLEAN_URL | sed 's|.*://\([^:]*\):.*|\1|')"
+          # Check if sslmode is already in the URL
+          if echo "$CLEAN_URL" | grep -q "sslmode"; then
+            echo "SSL mode: already set in URL"
+          else
+            echo "SSL mode: will add sslmode=require"
+          fi
 
       - name: Run migration via psql
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGSSLMODE: require
         run: |
           CLEAN_URL=$(echo "$SUPABASE_DB_URL" | tr -d '[:space:]')
-          psql "$CLEAN_URL" \
+          # Append sslmode=require if not already present
+          if echo "$CLEAN_URL" | grep -q "sslmode"; then
+            FINAL_URL="$CLEAN_URL"
+          elif echo "$CLEAN_URL" | grep -q "?"; then
+            FINAL_URL="${CLEAN_URL}&sslmode=require"
+          else
+            FINAL_URL="${CLEAN_URL}?sslmode=require"
+          fi
+          psql "$FINAL_URL" \
             -f supabase/migrations/20260309000001_reconstruction_jobs.sql \
             -v ON_ERROR_STOP=1
 
       - name: Verify migration
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGSSLMODE: require
         run: |
           CLEAN_URL=$(echo "$SUPABASE_DB_URL" | tr -d '[:space:]')
+          if echo "$CLEAN_URL" | grep -q "sslmode"; then
+            FINAL_URL="$CLEAN_URL"
+          elif echo "$CLEAN_URL" | grep -q "?"; then
+            FINAL_URL="${CLEAN_URL}&sslmode=require"
+          else
+            FINAL_URL="${CLEAN_URL}?sslmode=require"
+          fi
           echo "=== reconstruction_jobs table ==="
-          psql "$CLEAN_URL" -c "\d reconstruction_jobs"
+          psql "$FINAL_URL" -c "\d reconstruction_jobs"
           echo "=== floors.active_reconstruction_job_id ==="
-          psql "$CLEAN_URL" -c "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='floors' AND column_name='active_reconstruction_job_id';"
+          psql "$FINAL_URL" -c "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='floors' AND column_name='active_reconstruction_job_id';"
