@@ -15,20 +15,7 @@ jobs:
       - name: Install postgresql-client
         run: sudo apt-get install -y postgresql-client-16
 
-      - name: Debug connection and test
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: |
-          CLEAN_URL=$(echo "$SUPABASE_DB_URL" | tr -d '[:space:]')
-          echo "URL length: ${#CLEAN_URL}"
-          HOST=$(echo $CLEAN_URL | sed 's|.*@\([^:/]*\).*|\1|')
-          PORT=$(echo $CLEAN_URL | sed 's|.*:\([0-9]*\)/.*|\1|')
-          echo "Host: $HOST"
-          echo "Port: $PORT"
-          echo "--- Testing TCP connection ---"
-          timeout 10 bash -c "cat < /dev/null > /dev/tcp/$HOST/${PORT:-5432}" && echo "TCP OK" || echo "TCP FAILED (connection refused or timeout)"
-
-      - name: Run migration via psql
+      - name: Run migration (capture errors)
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           PGSSLMODE: require
@@ -41,11 +28,21 @@ jobs:
           else
             FINAL_URL="${CLEAN_URL}?sslmode=require"
           fi
-          echo "Running psql migration..."
+          echo "=== Attempting psql connection ==="
           psql "$FINAL_URL" \
             -f supabase/migrations/20260309000001_reconstruction_jobs.sql \
-            -v ON_ERROR_STOP=1 2>&1
-          echo "Exit code: $?"
+            -v ON_ERROR_STOP=1 2>&1 | tee /tmp/psql_output.txt
+          EXIT=${PIPESTATUS[0]}
+          echo "psql exit code: $EXIT"
+          exit $EXIT
+
+      - name: Upload error log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psql-error-log
+          path: /tmp/psql_output.txt
+          retention-days: 3
 
       - name: Verify migration
         env:
@@ -60,7 +57,5 @@ jobs:
           else
             FINAL_URL="${CLEAN_URL}?sslmode=require"
           fi
-          echo "=== reconstruction_jobs table ==="
           psql "$FINAL_URL" -c "\d reconstruction_jobs"
-          echo "=== floors.active_reconstruction_job_id ==="
           psql "$FINAL_URL" -c "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='floors' AND column_name='active_reconstruction_job_id';"
