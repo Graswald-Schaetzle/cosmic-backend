@@ -6,30 +6,21 @@
 # Run:   docker run --gpus all -e JOB_ID=1 -e GCS_BUCKET=... cosmic-3d-worker
 # ============================================================
 
+# Use official COLMAP image with CUDA support as base
+# This avoids building COLMAP from source in CI (complex, fragile)
+FROM colmap/colmap:3.9.1 AS colmap-base
+
 FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
+# Copy COLMAP binary from official image
+COPY --from=colmap-base /usr/local/bin/colmap /usr/local/bin/colmap
+COPY --from=colmap-base /usr/local/lib/ /usr/local/lib/
+
 # System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    cmake \
-    build-essential \
-    libboost-all-dev \
-    libeigen3-dev \
-    libflann-dev \
-    libfreeimage-dev \
-    libgoogle-glog-dev \
-    libgflags-dev \
-    libsqlite3-dev \
-    libcgal-dev \
-    libceres-dev \
-    qtbase5-dev \
-    libqt5opengl5-dev \
-    libatlas-base-dev \
-    libsuitesparse-dev \
-    libglew-dev \
     ffmpeg \
     python3.10 \
     python3-pip \
@@ -37,24 +28,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     curl \
     unzip \
+    libboost-filesystem1.74.0 \
+    libboost-program-options1.74.0 \
+    libboost-graph1.74.0 \
+    libcgal-dev \
+    libfreeimage3 \
+    libgoogle-glog0v5 \
+    libgflags2.2 \
+    libglew2.2 \
+    libqt5core5a \
+    libqt5opengl5 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set python3.10 as default
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
-
-# Build COLMAP from source
-# Note: CUDA is disabled at build time (no CUDA on CI runners).
-# CUDA support is available at runtime on GPU nodes via the nvidia/cuda base image.
-RUN git clone --branch 3.9.1 --depth 1 https://github.com/colmap/colmap.git /tmp/colmap \
-    && cd /tmp/colmap \
-    && mkdir build && cd build \
-    && cmake .. \
-        -DCUDA_ENABLED=OFF \
-        -DCMAKE_BUILD_TYPE=Release \
-    && make -j$(nproc) \
-    && make install \
-    && rm -rf /tmp/colmap
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
