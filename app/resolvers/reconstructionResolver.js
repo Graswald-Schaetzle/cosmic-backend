@@ -56,7 +56,7 @@ async function submitBatchJob(jobId, inputPath, supabaseUrl, supabaseKey) {
   }
 
   const response = await axios.post(
-    `https://api.runpod.io/v2/${RUNPOD_ENDPOINT_ID}/run`,
+    `https://api.runpod.ai/v2/${RUNPOD_ENDPOINT_ID}/run`,
     {
       input: {
         job_id: String(jobId),
