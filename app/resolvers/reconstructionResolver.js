@@ -101,10 +101,11 @@ async function submitBatchJob(jobId, inputPath, supabaseUrl, supabaseKey) {
       instances: [
         {
           policy: {
-            machineType: 'n1-standard-8',
+            // L4 is more available than T4; g2-standard-8 is the L4 machine type
+            machineType: 'g2-standard-8',
             accelerators: [
               {
-                type: 'nvidia-tesla-t4',
+                type: 'nvidia-l4',
                 count: 1,
               },
             ],
@@ -113,7 +114,12 @@ async function submitBatchJob(jobId, inputPath, supabaseUrl, supabaseKey) {
         },
       ],
       location: {
-        allowedLocations: [`regions/${GCP_REGION}`],
+        // Allow all zones in the region to maximize availability
+        allowedLocations: [
+          `zones/${GCP_REGION}-a`,
+          `zones/${GCP_REGION}-b`,
+          `zones/${GCP_REGION}-c`,
+        ],
       },
     },
     logsPolicy: {
