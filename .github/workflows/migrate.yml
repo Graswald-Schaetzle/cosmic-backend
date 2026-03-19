@@ -34,7 +34,7 @@ jobs:
 
           psql "$FINAL_URL" \
             -f supabase/migrations/20260309000001_reconstruction_jobs.sql \
-            -v ON_ERROR_STOP=1 >> $GITHUB_STEP_SUMMARY 2>&1
+            -v ON_ERROR_STOP=1 2>&1 | tee -a $GITHUB_STEP_SUMMARY
 
           EXIT=$?
           echo '```' >> $GITHUB_STEP_SUMMARY

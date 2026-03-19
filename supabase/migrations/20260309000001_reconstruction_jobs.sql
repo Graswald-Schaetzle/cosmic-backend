@@ -55,8 +55,22 @@ create index if not exists idx_reconstruction_jobs_status
   on reconstruction_jobs(status);
 
 -- Link a floor to its active reconstruction
+-- Add column (idempotent)
 alter table floors
-  add column if not exists active_reconstruction_job_id bigint
-    references reconstruction_jobs(job_id) on delete set null;
+  add column if not exists active_reconstruction_job_id bigint;
+
+-- Add FK constraint only if it doesn't already exist (idempotent re-run safe)
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'floors_active_reconstruction_job_id_fkey'
+  ) then
+    alter table floors
+      add constraint floors_active_reconstruction_job_id_fkey
+      foreign key (active_reconstruction_job_id)
+      references reconstruction_jobs(job_id) on delete set null;
+  end if;
+end $$;
 
 commit;
