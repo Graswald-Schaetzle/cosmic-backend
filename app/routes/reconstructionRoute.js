@@ -128,12 +128,12 @@ const reconstructionRoutes = async (app, supabase) => {
         );
 
         // Update job status
-        // NOTE: DB column may need a migration to rename gcp_batch_job_id → runpod_job_id
+        // NOTE: gcp_batch_job_id column used for RunPod job ID (migration to rename pending)
         const { data: updated, error: updateError } = await supabase
           .from('reconstruction_jobs')
           .update({
             status: 'queued',
-            runpod_job_id: runpodJobId,
+            gcp_batch_job_id: runpodJobId,
             updated_at: new Date().toISOString(),
           })
           .eq('job_id', id)
