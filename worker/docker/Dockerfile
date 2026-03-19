@@ -23,6 +23,7 @@ COPY --from=colmap-base /usr/local/lib/ /usr/local/lib/
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     python3.10 \
+    python3.10-dev \
     python3-pip \
     python3.10-venv \
     wget \
