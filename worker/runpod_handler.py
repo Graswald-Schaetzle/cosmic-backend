@@ -1,12 +1,22 @@
 import runpod
 import subprocess
 import os
+import json
+import tempfile
 
 def handler(job):
     job_input = job["input"]
 
     # Set env vars for the pipeline script
     env = os.environ.copy()
+
+    # Write GCS service account key to temp file if provided as env var
+    gcp_key_json = os.environ.get("GCP_SA_KEY_JSON")
+    if gcp_key_json:
+        key_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+        key_file.write(gcp_key_json)
+        key_file.close()
+        env["GOOGLE_APPLICATION_CREDENTIALS"] = key_file.name
     env["JOB_ID"] = str(job_input["job_id"])
     env["GCS_BUCKET"] = job_input["gcs_bucket"]
     env["INPUT_PATH"] = job_input["input_path"]
