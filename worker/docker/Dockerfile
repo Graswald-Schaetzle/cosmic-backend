@@ -8,7 +8,7 @@
 
 # Use official COLMAP image with CUDA support as base
 # This avoids building COLMAP from source in CI (complex, fragile)
-FROM colmap/colmap:3.9.1 AS colmap-base
+FROM colmap/colmap:latest AS colmap-base
 
 FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
 
