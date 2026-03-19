@@ -84,4 +84,8 @@ COPY scripts/ /app/scripts/
 # Make scripts executable
 RUN chmod +x /app/scripts/*.sh
 
-ENTRYPOINT ["/app/scripts/entrypoint.sh"]
+# RunPod serverless handler
+RUN pip install --no-cache-dir runpod==1.7.0
+COPY runpod_handler.py /app/runpod_handler.py
+
+CMD ["python", "/app/runpod_handler.py"]
