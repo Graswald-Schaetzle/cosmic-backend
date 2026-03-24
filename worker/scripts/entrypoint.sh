@@ -24,6 +24,7 @@ python3 /app/pipeline/pipeline.py \
   --supabase-key "$SUPABASE_KEY" \
   --callback-url "${CALLBACK_URL:-}" \
   --callback-secret "${CALLBACK_SECRET:-}" \
+  --poses-available "${POSES_AVAILABLE:-false}" \
   --workspace /workspace
 
 EXIT_CODE=$?

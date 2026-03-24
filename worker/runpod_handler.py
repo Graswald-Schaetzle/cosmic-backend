@@ -23,6 +23,7 @@ def handler(job):
     env["SUPABASE_URL"] = job_input["supabase_url"]
     env["SUPABASE_KEY"] = job_input["supabase_key"]
     env["CALLBACK_URL"] = job_input["callback_url"]
+    env["POSES_AVAILABLE"] = "true" if job_input.get("poses_available", False) else "false"
 
     result = subprocess.run(
         ["/app/scripts/entrypoint.sh"],

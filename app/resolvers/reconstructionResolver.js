@@ -42,7 +42,7 @@ async function generateSignedDownloadUrl(gcsPath) {
   return url;
 }
 
-async function submitBatchJob(jobId, inputPath, supabaseUrl, supabaseKey) {
+async function submitBatchJob(jobId, inputPath, supabaseUrl, supabaseKey, posesAvailable = false) {
   if (!RUNPOD_API_KEY || !RUNPOD_ENDPOINT_ID) {
     throw new Error(
       'RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID must be set to submit RunPod jobs',
@@ -65,6 +65,7 @@ async function submitBatchJob(jobId, inputPath, supabaseUrl, supabaseKey) {
         supabase_url: supabaseUrl,
         supabase_key: supabaseKey,
         callback_url: `${CALLBACK_BASE_URL}/reconstruction-jobs/${jobId}/callback`,
+        poses_available: posesAvailable,
       },
     },
     {

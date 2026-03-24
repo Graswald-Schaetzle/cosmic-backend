@@ -45,6 +45,7 @@ class Pipeline:
         self.supabase_key = args.supabase_key
         self.callback_url = args.callback_url
         self.callback_secret = args.callback_secret
+        self.poses_available = getattr(args, 'poses_available', False)
         self.workspace = Path(args.workspace) / f"job_{self.job_id}"
         self.local_mode = LOCAL_MODE
 
@@ -52,6 +53,7 @@ class Pipeline:
         self.input_dir = self.workspace / "input"
         self.frames_dir = self.workspace / "frames"
         self.colmap_dir = self.workspace / "colmap_output"
+        self.nerfstudio_dir = self.workspace / "nerfstudio_data"  # ARKit path
         self.train_dir = self.workspace / "training"
         self.export_dir = self.workspace / "export"
         self.output_dir = self.workspace / "output"
@@ -73,7 +75,14 @@ class Pipeline:
         }
 
     def run(self):
-        """Execute the full pipeline."""
+        """Execute the full pipeline.
+
+        Two paths:
+        - ARKit path (poses_available=True): ZIP contains frames/ + transforms.json.
+          COLMAP is skipped; ARKit VIO poses are used directly for Nerfstudio training.
+        - Legacy path (poses_available=False): video or image ZIP without poses.
+          COLMAP estimates camera poses via Structure from Motion.
+        """
         try:
             self._setup_workspace()
 
@@ -81,12 +90,17 @@ class Pipeline:
             frame_count = self._extract_frames()
             self.metrics["frame_count"] = frame_count
 
-            self._update_status("running_colmap", input_frame_count=frame_count)
-            colmap_point_count = self._run_colmap()
-            self.metrics["colmap_point_count"] = colmap_point_count
-
-            self._update_status("training_splat", colmap_point_count=colmap_point_count)
-            self._train_splatfacto()
+            if self.poses_available:
+                logger.info("ARKit poses detected — skipping COLMAP.")
+                self._prepare_arkit_dataset()
+                self._update_status("training_splat", input_frame_count=frame_count)
+                self._train_splatfacto(data_dir=self.nerfstudio_dir)
+            else:
+                self._update_status("running_colmap", input_frame_count=frame_count)
+                colmap_point_count = self._run_colmap()
+                self.metrics["colmap_point_count"] = colmap_point_count
+                self._update_status("training_splat", colmap_point_count=colmap_point_count)
+                self._train_splatfacto(data_dir=self.colmap_dir)
 
             self._update_status("exporting")
             output_paths = self._export_and_upload()
@@ -119,6 +133,7 @@ class Pipeline:
             self.input_dir,
             self.frames_dir,
             self.colmap_dir,
+            self.nerfstudio_dir,
             self.train_dir,
             self.export_dir,
             self.output_dir,
@@ -192,13 +207,27 @@ class Pipeline:
         return frame_count
 
     def _extract_zip_images(self, zip_path, start_time):
-        """Extract images from zip archive."""
+        """Extract images (and optional transforms.json) from zip archive.
+
+        For ARKit frame ZIPs the archive contains:
+          frames/frame_00001.jpg ...
+          transforms.json
+
+        For plain image ZIPs the archive contains flat or nested JPEG/PNG files.
+        The transforms.json (if present) is moved to nerfstudio_dir for use in training.
+        """
         import zipfile
 
         logger.info("Extracting images from zip archive...")
 
         with zipfile.ZipFile(str(zip_path), "r") as z:
             z.extractall(str(self.frames_dir))
+
+        # Move transforms.json to nerfstudio_dir if present (ARKit path)
+        transforms_src = self.frames_dir / "transforms.json"
+        if transforms_src.exists():
+            shutil.move(str(transforms_src), str(self.nerfstudio_dir / "transforms.json"))
+            logger.info("transforms.json found — ARKit poses will be used.")
 
         # Find all image files (may be in subdirectories)
         image_exts = {".jpg", ".jpeg", ".png", ".tiff", ".tif"}
@@ -207,13 +236,18 @@ class Pipeline:
             if f.suffix.lower() in image_exts:
                 images.append(f)
 
-        # Flatten: move all images to frames_dir root with sequential names
-        for i, img in enumerate(sorted(images)):
-            dest = self.frames_dir / f"frame_{i:05d}{img.suffix.lower()}"
-            if img != dest:
-                shutil.move(str(img), str(dest))
+        if not self.poses_available:
+            # Legacy path: flatten images to frames_dir root with sequential names
+            for i, img in enumerate(sorted(images)):
+                dest = self.frames_dir / f"frame_{i:05d}{img.suffix.lower()}"
+                if img != dest:
+                    shutil.move(str(img), str(dest))
+        else:
+            # ARKit path: keep frames/ subdirectory structure as-is
+            # (transforms.json references relative paths like "frames/frame_00001.jpg")
+            pass
 
-        frame_count = len(list(self.frames_dir.glob("frame_*")))
+        frame_count = len(images)
         elapsed = time.time() - start_time
 
         if frame_count < 10:
@@ -272,14 +306,57 @@ class Pipeline:
         }
         return point_count
 
-    def _train_splatfacto(self):
-        """Train Gaussian Splatting model using Nerfstudio Splatfacto."""
+    def _prepare_arkit_dataset(self):
+        """Validate the ARKit-provided Nerfstudio dataset (transforms.json + frames).
+
+        The nerfstudio_dir must contain:
+          transforms.json   — camera intrinsics + per-frame poses
+          frames/           — JPEG images referenced in transforms.json
+        """
+        transforms_path = self.nerfstudio_dir / "transforms.json"
+        if not transforms_path.exists():
+            raise PipelineError(
+                "transforms.json not found in ARKit frame package. "
+                "Expected layout: transforms.json + frames/*.jpg in ZIP root."
+            )
+
+        with open(transforms_path) as f:
+            data = json.load(f)
+
+        frame_count = len(data.get("frames", []))
+        if frame_count < 10:
+            raise PipelineError(
+                f"transforms.json contains only {frame_count} frames. Need at least 10."
+            )
+
+        # Symlink or copy the frames/ directory into nerfstudio_dir so relative paths resolve
+        frames_src = self.frames_dir / "frames"
+        frames_dst = self.nerfstudio_dir / "frames"
+        if frames_src.exists() and not frames_dst.exists():
+            frames_dst.symlink_to(frames_src.resolve())
+
+        logger.info(
+            f"ARKit dataset ready: {frame_count} frames with pre-computed poses. "
+            "COLMAP skipped."
+        )
+        self.metrics["arkit_frame_count"] = frame_count
+
+    def _train_splatfacto(self, data_dir=None):
+        """Train Gaussian Splatting model using Nerfstudio Splatfacto.
+
+        - For the ARKit path, data_dir points to nerfstudio_dir (contains transforms.json).
+          Nerfstudio's nerfstudio dataparser reads transforms.json directly — no ns-process-data needed.
+        - For the legacy COLMAP path, data_dir points to colmap_dir (COLMAP output).
+        """
+        if data_dir is None:
+            data_dir = self.colmap_dir
+
         start = time.time()
-        logger.info("Training Splatfacto model (30k iterations)...")
+        logger.info(f"Training Splatfacto model (30k iterations) with data: {data_dir} ...")
 
         cmd = [
             "ns-train", "splatfacto",
-            "--data", str(self.colmap_dir),
+            "--data", str(data_dir),
             "--output-dir", str(self.train_dir),
             "--max-num-iterations", "30000",
             "--viewer.quit-on-train-completion", "True",
@@ -294,6 +371,7 @@ class Pipeline:
         logger.info(f"Splatfacto training completed in {elapsed:.1f}s")
         self.metrics["steps"]["training"] = {
             "duration_s": round(elapsed, 1),
+            "poses_available": self.poses_available,
         }
 
     def _export_and_upload(self):
@@ -473,9 +551,17 @@ def main():
     parser.add_argument("--supabase-key", required=True, help="Supabase service key")
     parser.add_argument("--callback-url", default="", help="Backend callback URL")
     parser.add_argument("--callback-secret", default="", help="Callback auth secret")
+    parser.add_argument(
+        "--poses-available",
+        default="false",
+        help="'true' if the input ZIP contains ARKit camera poses (transforms.json); skips COLMAP",
+    )
     parser.add_argument("--workspace", default="/workspace", help="Working directory")
 
     args = parser.parse_args()
+
+    # Convert --poses-available string to bool
+    args.poses_available = args.poses_available.lower() in ("true", "1", "yes")
 
     pipeline = Pipeline(args)
     exit_code = pipeline.run()

@@ -53,6 +53,7 @@ const reconstructionRoutes = async (app, supabase) => {
             title,
             status: 'pending',
             input_type: input_type || 'video',
+            poses_available: input_type === 'arkit_frames',
             input_storage_path: '', // will be set after upload
           })
           .select('*')
@@ -63,7 +64,7 @@ const reconstructionRoutes = async (app, supabase) => {
         }
 
         // Generate signed upload URL
-        const ext = input_type === 'images' ? 'zip' : 'mp4';
+        const ext = (input_type === 'images' || input_type === 'arkit_frames') ? 'zip' : 'mp4';
         const filename = `input.${ext}`;
         const { url: uploadUrl, gcsPath } = await generateSignedUploadUrl(
           job.job_id,
@@ -125,6 +126,7 @@ const reconstructionRoutes = async (app, supabase) => {
           job.input_storage_path,
           process.env.SUPABASE_URL,
           process.env.SUPABASE_KEY,
+          job.poses_available || false,
         );
 
         // Update job status
