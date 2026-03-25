@@ -54,8 +54,7 @@ const spaceRoutes = async (app, supabase) => {
         .getPublicUrl(storagePath);
 
       // Insert Space into DB
-      const insertData = { name, model_url: publicUrl };
-      if (ownerUserId) insertData.owner_user_id = ownerUserId;
+      const insertData = { name, model_url: publicUrl, owner_user_id: ownerUserId };
 
       const { data: space, error: spaceError } = await supabase
         .from('spaces')
@@ -78,10 +77,24 @@ const spaceRoutes = async (app, supabase) => {
       return res.status(500).json({ error: err.message });
     }
   });
-  app.get('/spaces', async (req, res) => {
-    const { data: spaces, error: spaceError } = await supabase
-      .from('spaces')
-      .select('*');
+  app.get('/spaces', tokenValidator('jwt'), async (req, res) => {
+    const userId = req.user_id;
+
+    // Fetch spaces owned by user OR where user is a member
+    const { data: memberSpaceRows } = await supabase
+      .from('space_memberships')
+      .select('space_id')
+      .eq('user_id', userId);
+    const memberSpaceIds = (memberSpaceRows || []).map((r) => r.space_id);
+
+    let query = supabase.from('spaces').select('*');
+    if (memberSpaceIds.length > 0) {
+      query = query.or(`owner_user_id.eq.${userId},space_id.in.(${memberSpaceIds.join(',')})`);
+    } else {
+      query = query.eq('owner_user_id', userId);
+    }
+
+    const { data: spaces, error: spaceError } = await query.order('created_at', { ascending: false });
 
     if (spaceError) {
       return res.status(500).json({ error: spaceError.message });
@@ -92,6 +105,7 @@ const spaceRoutes = async (app, supabase) => {
     const [
       { data: rooms, error: roomsError },
       { data: locations, error: locationsError },
+      { data: recentJobs },
     ] = await Promise.all([
       spaceIds.length
         ? supabase.from('rooms').select('*').in('space_id', spaceIds)
@@ -99,12 +113,28 @@ const spaceRoutes = async (app, supabase) => {
       spaceIds.length
         ? supabase.from('locations').select('*').in('space_id', spaceIds)
         : { data: [], error: null },
+      spaceIds.length
+        ? supabase
+            .from('reconstruction_jobs')
+            .select('job_id, space_id, status, output_splat_path, output_spz_path, created_at')
+            .in('space_id', spaceIds)
+            .order('created_at', { ascending: false })
+        : { data: [] },
     ]);
+
+    // Keep only the latest job per space
+    const latestJobBySpace = {};
+    for (const job of recentJobs || []) {
+      if (!latestJobBySpace[job.space_id]) {
+        latestJobBySpace[job.space_id] = job;
+      }
+    }
 
     const result = spaces.map((space) => ({
       ...space,
       rooms: (rooms || []).filter((r) => r.space_id === space.space_id),
       locations: (locations || []).filter((l) => l.space_id === space.space_id),
+      latest_job: latestJobBySpace[space.space_id] || null,
     }));
 
     res.json({
