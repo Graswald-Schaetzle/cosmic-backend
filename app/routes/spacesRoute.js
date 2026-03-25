@@ -1,4 +1,83 @@
+const multer = require('multer');
+const fs = require('fs');
+const { tokenValidator } = require('../utils');
+
+const upload = multer({ dest: 'uploads/' });
+const USDZ_BUCKET = 'usdz-models';
+
 const spaceRoutes = async (app, supabase) => {
+
+  // POST /spaces/upload — receives .usdz from iOS app, stores in Supabase Storage,
+  // creates a Space DB entry and returns the Space JSON expected by the iOS model.
+  app.post('/spaces/upload', upload.single('model'), async (req, res) => {
+    try {
+      const file = req.file;
+      const { name } = req.body;
+
+      if (!file) return res.status(400).json({ error: 'No model file provided' });
+      if (!name) return res.status(400).json({ error: 'Name is required' });
+
+      // Optional: extract user_id from Bearer JWT (non-blocking)
+      let ownerUserId = null;
+      try {
+        const { tokenValidator: tv } = require('../utils');
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (token) {
+          const jwt = require('jsonwebtoken');
+          const { userId } = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+          ownerUserId = userId || null;
+        }
+      } catch (_) { /* auth is optional */ }
+
+      // Ensure bucket exists
+      await supabase.storage.createBucket(USDZ_BUCKET, { public: true }).catch(() => {});
+
+      // Upload file to Supabase Storage
+      const fileBuffer = fs.readFileSync(file.path);
+      const storagePath = `models/${Date.now()}-${file.originalname}`;
+
+      const { error: storageError } = await supabase.storage
+        .from(USDZ_BUCKET)
+        .upload(storagePath, fileBuffer, {
+          contentType: 'model/vnd.usdz+zip',
+          upsert: false,
+        });
+
+      fs.unlinkSync(file.path);
+
+      if (storageError) return res.status(500).json({ error: storageError.message });
+
+      // Build public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from(USDZ_BUCKET)
+        .getPublicUrl(storagePath);
+
+      // Insert Space into DB
+      const insertData = { name, model_url: publicUrl };
+      if (ownerUserId) insertData.owner_user_id = ownerUserId;
+
+      const { data: space, error: spaceError } = await supabase
+        .from('spaces')
+        .insert(insertData)
+        .select('*')
+        .single();
+
+      if (spaceError) return res.status(500).json({ error: spaceError.message });
+
+      // Return response matching iOS Space Codable model
+      return res.json({
+        id: String(space.space_id),
+        user_id: String(space.owner_user_id ?? 0),
+        name: space.name,
+        model_url: space.model_url,
+        created_at: space.created_at,
+      });
+    } catch (err) {
+      console.error('[spaces/upload] error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
   app.get('/spaces', async (req, res) => {
     const { data: spaces, error: spaceError } = await supabase
       .from('spaces')
