@@ -71,7 +71,7 @@ const userRoutes = async (app, supabase) => {
   });
 
   app.post('/auth/login', async (req, res) => {
-    const { supabase_id } = req.body;
+    const { supabase_id, first_name, last_name } = req.body;
 
     const { data: existing } = await supabase
       .from('users')
@@ -92,9 +92,13 @@ const userRoutes = async (app, supabase) => {
       return res.json({ user });
     }
 
+    const newUserData = { supabase_id };
+    if (first_name) newUserData.first_name = first_name;
+    if (last_name) newUserData.last_name = last_name;
+
     const { data, error } = await supabase
       .from('users')
-      .insert({ supabase_id })
+      .insert(newUserData)
       .select()
       .single();
 
