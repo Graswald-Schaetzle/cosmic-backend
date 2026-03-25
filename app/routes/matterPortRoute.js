@@ -31,7 +31,7 @@ const matterPortRoutes = async (app, supabase) => {
     if (location && location.data && location.data.addMattertag) {
       const matterport_tag_id = location.data.addMattertag.id;
       const locationInfo = {
-        label: location_name,
+        location_name,
         description,
         color,
         x,
@@ -45,7 +45,7 @@ const matterPortRoutes = async (app, supabase) => {
         .select('*');
       res.json({ data, error });
     } else {
-      res.json({ tag });
+      res.json({ error: 'Failed to create Matterport tag' });
     }
   });
 

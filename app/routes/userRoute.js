@@ -71,12 +71,12 @@ const userRoutes = async (app, supabase) => {
   });
 
   app.post('/auth/login', async (req, res) => {
-    const { clerk_id } = req.body;
+    const { supabase_id } = req.body;
 
     const { data: existing } = await supabase
       .from('users')
       .select('*')
-      .eq('clerk_id', clerk_id)
+      .eq('supabase_id', supabase_id)
       .single();
     if (existing && existing.user_id) {
       const { accessToken: access_token, refreshToken: refresh_token } =
@@ -94,7 +94,7 @@ const userRoutes = async (app, supabase) => {
 
     const { data, error } = await supabase
       .from('users')
-      .insert(req.body)
+      .insert({ supabase_id })
       .select()
       .single();
 

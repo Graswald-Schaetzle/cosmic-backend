@@ -590,7 +590,7 @@ export type Database = {
       users: {
         Row: {
           access_token: string | null
-          clerk_id: string | null
+          supabase_id: string | null
           created_at: string
           email: string | null
           first_name: string | null
@@ -602,7 +602,7 @@ export type Database = {
         }
         Insert: {
           access_token?: string | null
-          clerk_id?: string | null
+          supabase_id?: string | null
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -614,7 +614,7 @@ export type Database = {
         }
         Update: {
           access_token?: string | null
-          clerk_id?: string | null
+          supabase_id?: string | null
           created_at?: string
           email?: string | null
           first_name?: string | null

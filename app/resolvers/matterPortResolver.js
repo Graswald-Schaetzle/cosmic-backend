@@ -88,7 +88,7 @@ async function createMattertag({
           anchorPosition: { x: ${x}, y: ${y}, z: ${z} },
           color: "${color}",
           enabled: ${enabled},
-          floorId: "${floorId}",
+          ${floorId ? `floorId: "${floorId}",` : ''}
         }
         ) {
           id

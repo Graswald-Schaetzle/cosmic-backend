@@ -5,14 +5,14 @@
 -- Enable UUID generation
 create extension if not exists "pgcrypto";
 
--- Users table (synced with Clerk auth)
+-- Users table (synced with Supabase auth)
 create table if not exists users (
   user_id bigint primary key generated always as identity,
   username text,
   first_name text,
   last_name text,
   email text,
-  clerk_id text,
+  supabase_id text,
   role text default 'user',
   access_token text,
   refresh_token text,

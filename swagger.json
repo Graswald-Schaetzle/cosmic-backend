@@ -67,11 +67,11 @@
                   "first_name": { "type": "string", "example": "user" },
                   "last_name": { "type": "string", "example": "user" },
                   "email": { "type": "string", "example": "mike_w@gmail.com" },
-                  "clerk_id": { "type": "string", "example": "clerk_id_12345" },
+                  "supabase_id": { "type": "string", "example": "605dacc8-adaa-415d-9d88-ff8f1e8646df" },
                   "role": { "type": "string", "example": "user" },
                   "username": { "type": "string", "example": "username" }
                 },
-                "required": ["email", "clerk_id"]
+                "required": ["supabase_id"]
               }
             }
           }

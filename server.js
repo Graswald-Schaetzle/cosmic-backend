@@ -46,6 +46,7 @@ const { assetRoutes } = require('./app/routes/assetsRoute');
 const { eventRoutes } = require('./app/routes/eventsRoute');
 const { spaceMembershipRoutes } = require('./app/routes/spaceMembershipsRoute');
 const { reconstructionRoutes } = require('./app/routes/reconstructionRoute');
+const { spatialScanRoutes } = require('./app/routes/spatialScanRoute');
 
 const connectToServer = () => {
   app.use(cors(corsOptions));
@@ -69,6 +70,7 @@ const connectToServer = () => {
   eventRoutes(app, supabase);
   spaceMembershipRoutes(app, supabase);
   reconstructionRoutes(app, supabase);
+  spatialScanRoutes(app, supabase);
 
   app.listen(port, () => {
     console.log(`Server is listening at http://localhost:${port}`);
