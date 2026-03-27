@@ -18,35 +18,26 @@ const matterPortRoutes = async (app, supabase) => {
       enabled = true,
       floorId,
     } = req.body;
-    const location = await createMattertag({
-      location_name,
-      x,
-      y,
-      z,
-      description,
-      color,
-      enabled,
-      floorId,
-    });
-    if (location && location.data && location.data.addMattertag) {
-      const matterport_tag_id = location.data.addMattertag.id;
-      const locationInfo = {
-        location_name,
-        description,
-        color,
-        x,
-        y,
-        z,
-        matterport_tag_id,
-      };
-      const { data, error } = await supabase
-        .from('locations')
-        .insert(locationInfo)
-        .select('*');
-      res.json({ data, error });
-    } else {
-      res.json({ error: 'Failed to create Matterport tag' });
+
+    // Try to create a permanent Matterport tag (best-effort — does not block Supabase insert)
+    let matterport_tag_id = null;
+    try {
+      const mpResult = await createMattertag({ location_name, x, y, z, description, color, enabled, floorId });
+      if (mpResult?.data?.addMattertag?.id) {
+        matterport_tag_id = mpResult.data.addMattertag.id;
+      }
+    } catch {
+      // Matterport API unavailable — proceed without permanent tag
     }
+
+    // Always save to Supabase (authoritative data store)
+    const locationInfo = { location_name, description, color, x, y, z, matterport_tag_id };
+    const { data, error } = await supabase.from('locations').insert(locationInfo).select('*');
+
+    if (error) {
+      return res.status(500).json({ data: null, error: error.message });
+    }
+    res.json({ data, error: null });
   });
 
   app.put('/locations', async (req, res) => {
