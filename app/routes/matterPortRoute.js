@@ -32,7 +32,7 @@ const matterPortRoutes = async (app, supabase) => {
     }
 
     // Always save to Supabase (authoritative data store)
-    const locationInfo = { location_name, description, color, x, y, z, matterport_tag_id, space_id: spaceId || null };
+    const locationInfo = { location_name, description, color, x, y, z, matterport_tag_id, space_id: spaceId ?? null };
     const { data, error } = await supabase.from('locations').insert(locationInfo).select('*');
 
     if (error) {
