@@ -17,6 +17,7 @@ const matterPortRoutes = async (app, supabase) => {
       z,
       enabled = true,
       floorId,
+      spaceId,
     } = req.body;
 
     // Try to create a permanent Matterport tag (best-effort — does not block Supabase insert)
@@ -31,7 +32,7 @@ const matterPortRoutes = async (app, supabase) => {
     }
 
     // Always save to Supabase (authoritative data store)
-    const locationInfo = { location_name, description, color, x, y, z, matterport_tag_id };
+    const locationInfo = { location_name, description, color, x, y, z, matterport_tag_id, space_id: spaceId || null };
     const { data, error } = await supabase.from('locations').insert(locationInfo).select('*');
 
     if (error) {
