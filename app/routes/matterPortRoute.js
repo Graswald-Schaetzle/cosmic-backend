@@ -31,8 +31,20 @@ const matterPortRoutes = async (app, supabase) => {
       // Matterport API unavailable — proceed without permanent tag
     }
 
+    // Resolve space_id: use provided value or fall back to the first available space
+    let resolvedSpaceId = spaceId ?? null;
+    if (!resolvedSpaceId) {
+      const { data: defaultSpace } = await supabase
+        .from('spaces')
+        .select('space_id')
+        .order('space_id', { ascending: true })
+        .limit(1)
+        .single();
+      resolvedSpaceId = defaultSpace?.space_id ?? null;
+    }
+
     // Always save to Supabase (authoritative data store)
-    const locationInfo = { location_name, description, color, x, y, z, matterport_tag_id, space_id: spaceId ?? null };
+    const locationInfo = { location_name, description, color, x, y, z, matterport_tag_id, space_id: resolvedSpaceId };
     const { data, error } = await supabase.from('locations').insert(locationInfo).select('*');
 
     if (error) {
