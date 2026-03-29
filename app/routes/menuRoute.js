@@ -1,8 +1,13 @@
 const { tokenValidator } = require('../utils.js');
+const { menuCatalog, normalizeMenuItems } = require('../menuCatalog');
 
 const menuRoutes = async (app, supabase) => {
+  app.get('/menu-catalog', tokenValidator('jwt'), async (_req, res) => {
+    res.json({ data: menuCatalog, error: null });
+  });
+
   app.post('/user-menu', tokenValidator('jwt'), async (req, res) => {
-    const userMenu = req.body;
+    const userMenu = normalizeMenuItems(req.body);
     const { user_id } = req;
 
     const menuWithUserId = userMenu.map((item) => ({
@@ -27,7 +32,7 @@ const menuRoutes = async (app, supabase) => {
       .select('*')
       .eq('user_id', user_id);
 
-    res.json({ data, error });
+    res.json({ data: normalizeMenuItems(data), error });
   });
 
   app.put('/user-menu', tokenValidator('jwt'), async (req, res) => {
@@ -44,7 +49,7 @@ const menuRoutes = async (app, supabase) => {
       if (deleteError)
         return res.status(400).json({ error: deleteError.message });
 
-      const menuItems = req.body.map((item) => ({
+      const menuItems = normalizeMenuItems(req.body).map((item) => ({
         ...item,
         user_id: user_id,
       }));

@@ -15,3 +15,4 @@ Thumbs.db
 .vscode/
 infra/gcp-service-account-key.json
 ._*
+supabase/.temp/

@@ -165,6 +165,42 @@ const userRoutes = async (app, supabase) => {
 
     return res.json({ user });
   });
+
+  app.post('/auth/refresh', async (req, res) => {
+    const refreshToken = req.body.refresh_token || req.body.refreshToken;
+
+    if (!refreshToken) {
+      return res
+        .status(400)
+        .json({ error: 'refresh_token is required' });
+    }
+
+    try {
+      const { accessToken: access_token, userId } =
+        await updateAccessToken(refreshToken);
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .update({ access_token })
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      return res.json({
+        access_token,
+        refresh_token: refreshToken,
+        user,
+      });
+    } catch (error) {
+      return res.status(401).json({
+        error: typeof error === 'string' ? error : 'Invalid or expired refresh token',
+      });
+    }
+  });
 };
 
 module.exports = {

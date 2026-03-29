@@ -484,6 +484,8 @@ export type Database = {
       spaces: {
         Row: {
           description: string | null
+          matterport_model_id: string | null
+          matterport_showcase_url: string | null
           name: string
           owner_user_id: number | null
           space_id: number
@@ -491,6 +493,8 @@ export type Database = {
         }
         Insert: {
           description?: string | null
+          matterport_model_id?: string | null
+          matterport_showcase_url?: string | null
           name: string
           owner_user_id?: number | null
           space_id?: number
@@ -498,6 +502,8 @@ export type Database = {
         }
         Update: {
           description?: string | null
+          matterport_model_id?: string | null
+          matterport_showcase_url?: string | null
           name?: string
           owner_user_id?: number | null
           space_id?: number
