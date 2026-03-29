@@ -596,6 +596,7 @@ export type Database = {
       users: {
         Row: {
           access_token: string | null
+          active_space_id: number | null
           supabase_id: string | null
           created_at: string
           email: string | null
@@ -608,6 +609,7 @@ export type Database = {
         }
         Insert: {
           access_token?: string | null
+          active_space_id?: number | null
           supabase_id?: string | null
           created_at?: string
           email?: string | null
@@ -620,6 +622,7 @@ export type Database = {
         }
         Update: {
           access_token?: string | null
+          active_space_id?: number | null
           supabase_id?: string | null
           created_at?: string
           email?: string | null

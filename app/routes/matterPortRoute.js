@@ -106,9 +106,10 @@ const matterPortRoutes = async (app, supabase) => {
   });
 
   app.get('/locations', async (req, res) => {
-    const { data: locations, error: locationsError } = await supabase
-      .from('locations')
-      .select('*');
+    const { space_id } = req.query;
+    let query = supabase.from('locations').select('*');
+    if (space_id) query = query.eq('space_id', space_id);
+    const { data: locations, error: locationsError } = await query;
 
     if (locationsError || !locations) {
       return res.status(404).json({ error: 'Locations not found' });

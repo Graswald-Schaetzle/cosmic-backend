@@ -70,6 +70,38 @@ const userRoutes = async (app, supabase) => {
     return res.json({ user });
   });
 
+  // GET /auth/user/active-space — returns the user's active_space_id
+  app.get('/auth/user/active-space', tokenValidator('jwt'), async ({ user_id }, res) => {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('active_space_id')
+      .eq('user_id', user_id)
+      .single();
+
+    if (error || !user)
+      return res.status(404).json({ error: 'User not found' });
+
+    return res.json({ active_space_id: user.active_space_id });
+  });
+
+  // PUT /auth/user/active-space — sets the user's active_space_id
+  app.put('/auth/user/active-space', tokenValidator('jwt'), async (req, res) => {
+    const userId = req.user_id;
+    const { space_id } = req.body;
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .update({ active_space_id: space_id ?? null })
+      .eq('user_id', userId)
+      .select('*')
+      .single();
+
+    if (error)
+      return res.status(400).json({ error: error.message });
+
+    return res.json({ user });
+  });
+
   app.post('/auth/login', async (req, res) => {
     const { supabase_id, first_name, last_name } = req.body;
 
