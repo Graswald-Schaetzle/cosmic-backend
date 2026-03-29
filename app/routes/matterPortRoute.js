@@ -18,6 +18,8 @@ const matterPortRoutes = async (app, supabase) => {
       enabled = true,
       floorId,
       spaceId,
+      tag_type = 'object',
+      responsible_user_id = null,
     } = req.body;
 
     // Try to create a permanent Matterport tag (best-effort — does not block Supabase insert)
@@ -44,7 +46,10 @@ const matterPortRoutes = async (app, supabase) => {
     }
 
     // Always save to Supabase (authoritative data store)
-    const locationInfo = { location_name, description, color, x, y, z, matterport_tag_id, space_id: resolvedSpaceId };
+    const locationInfo = {
+      location_name, description, color, x, y, z, matterport_tag_id,
+      space_id: resolvedSpaceId, tag_type, responsible_user_id,
+    };
     const { data, error } = await supabase.from('locations').insert(locationInfo).select('*');
 
     if (error) {
@@ -128,12 +133,23 @@ const matterPortRoutes = async (app, supabase) => {
           .eq('room_id', location.room_id)
           .single();
 
+        let responsible_user = null;
+        if (location.responsible_user_id) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('first_name, last_name, email')
+            .eq('user_id', location.responsible_user_id)
+            .single();
+          responsible_user = userData || null;
+        }
+
         return {
           ...location,
           floor_name: floorData?.name || null,
           room_name: roomData?.name || null,
           tasks: tasks || [],
           taskError: taskError?.message || null,
+          responsible_user,
         };
       }),
     );
@@ -171,12 +187,23 @@ const matterPortRoutes = async (app, supabase) => {
       .eq('room_id', location.room_id)
       .single();
 
+    let responsible_user = null;
+    if (location.responsible_user_id) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('first_name, last_name, email')
+        .eq('user_id', location.responsible_user_id)
+        .single();
+      responsible_user = userData || null;
+    }
+
     const locationWithDetails = {
       ...location,
       floor_name: floorData?.name || null,
       room_name: roomData?.name || null,
       tasks: tasks || [],
       taskError: taskLocationsError?.message || null,
+      responsible_user,
     };
 
     res.json(locationWithDetails);
