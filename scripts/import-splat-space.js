@@ -13,9 +13,14 @@
  *     --file ./splat.spz --name "Rustic modern home" --owner-email you@example.com \
  *     [--description "..."] [--activate] [--dry-run]
  *
- * Environment (same as the backend): SUPABASE_URL, SUPABASE_KEY (service key),
- * GCS_3D_PIPELINE_BUCKET (default cosmic-3d-pipeline) and Google application default
- * credentials with write access to the bucket (gcloud auth application-default login).
+ * Storage (--storage):
+ *   gcs       (default) uploads to the 3D pipeline bucket; needs Google application default
+ *             credentials with write access (gcloud auth application-default login).
+ *   supabase  uploads to the public Supabase bucket "splats" and stores the public URL;
+ *             no Google account needed.
+ *
+ * Environment (same as the backend): SUPABASE_URL, SUPABASE_KEY (service key) and, for
+ * --storage gcs, GCS_3D_PIPELINE_BUCKET (default cosmic-3d-pipeline).
  */
 require('dotenv').config({ quiet: true });
 const fs = require('fs');
@@ -104,13 +109,27 @@ async function main() {
   console.log(`Created space ${space.space_id}`);
 
   try {
-    const gcsPath = `imports/${space.space_id}/splat${extension}`;
-    await new Storage().bucket(bucketName).upload(file, {
-      destination: gcsPath,
-      resumable: true,
-      contentType: 'application/octet-stream',
-    });
-    console.log(`Uploaded gs://${bucketName}/${gcsPath}`);
+    const storagePath = `imports/${space.space_id}/splat${extension}`;
+    let outputPath = storagePath;
+    if (args.storage === 'supabase') {
+      const { error: uploadError } = await supabase.storage
+        .from('splats')
+        .upload(storagePath, fs.readFileSync(file), {
+          contentType: 'application/octet-stream',
+          upsert: true,
+        });
+      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+      outputPath = supabase.storage.from('splats').getPublicUrl(storagePath)
+        .data.publicUrl;
+      console.log(`Uploaded ${outputPath}`);
+    } else {
+      await new Storage().bucket(bucketName).upload(file, {
+        destination: storagePath,
+        resumable: true,
+        contentType: 'application/octet-stream',
+      });
+      console.log(`Uploaded gs://${bucketName}/${storagePath}`);
+    }
 
     const { data: job, error: jobError } = await supabase
       .from('reconstruction_jobs')
@@ -121,8 +140,8 @@ async function main() {
         status: 'completed',
         input_type: 'images',
         // Required column; there is no capture input for an imported splat.
-        input_storage_path: gcsPath,
-        [outputColumn]: gcsPath,
+        input_storage_path: storagePath,
+        [outputColumn]: outputPath,
       })
       .select('job_id')
       .single();

@@ -8,6 +8,13 @@ const {
   GCS_BUCKET,
 } = require('../resolvers/reconstructionResolver');
 
+// Outputs of pipeline jobs are bucket-relative paths that need a signed URL. Imported splats
+// (e.g. from SpAItial) are stored in a public Supabase bucket and referenced by full URL.
+const resolveOutputUrl = (outputPath) =>
+  /^https?:\/\//.test(outputPath)
+    ? Promise.resolve(outputPath)
+    : generateSignedDownloadUrl(outputPath);
+
 const upload = multer({
   dest: 'uploads/',
   limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2GB max
@@ -220,15 +227,13 @@ const reconstructionRoutes = async (app, supabase) => {
         const urls = {};
 
         if (job.output_ply_path) {
-          urls.ply_url = await generateSignedDownloadUrl(job.output_ply_path);
+          urls.ply_url = await resolveOutputUrl(job.output_ply_path);
         }
         if (job.output_splat_path) {
-          urls.splat_url = await generateSignedDownloadUrl(
-            job.output_splat_path,
-          );
+          urls.splat_url = await resolveOutputUrl(job.output_splat_path);
         }
         if (job.output_spz_path) {
-          urls.spz_url = await generateSignedDownloadUrl(job.output_spz_path);
+          urls.spz_url = await resolveOutputUrl(job.output_spz_path);
         }
 
         res.json({ data: { job_id: job.job_id, ...urls }, error: null });
