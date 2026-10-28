@@ -116,7 +116,7 @@ const spaceRoutes = async (app, supabase) => {
       spaceIds.length
         ? supabase
             .from('reconstruction_jobs')
-            .select('job_id, space_id, status, output_splat_path, output_spz_path, created_at')
+            .select('job_id, space_id, status, output_splat_path, output_spz_path, output_rad_path, created_at')
             .in('space_id', spaceIds)
             .order('created_at', { ascending: false })
         : { data: [] },

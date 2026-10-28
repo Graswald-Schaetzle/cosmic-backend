@@ -11,7 +11,11 @@
  * Usage:
  *   node scripts/import-splat-space.js \
  *     --file ./splat.spz --name "Rustic modern home" --owner-email you@example.com \
- *     [--collision ./collision.glb] [--description "..."] [--activate] [--dry-run]
+ *     [--collision ./collision.glb] [--rad ./splat.rad] [--description "..."] [--activate] [--dry-run]
+ *
+ * --rad adds a streamable level-of-detail version (Spark .rad, e.g. the full multi-million-splat
+ * scene) next to --file. The viewer streams it in chunks for "High"/"Auto" quality and uses --file
+ * for "Low", so --file should be the small version.
  *
  * Storage (--storage):
  *   gcs       (default) uploads to the 3D pipeline bucket; needs Google application default
@@ -69,6 +73,12 @@ async function main() {
   if (!fs.existsSync(file)) fail(`File not found: ${file}`);
   if (args.collision && !fs.existsSync(args.collision)) {
     fail(`Collision mesh not found: ${args.collision}`);
+  }
+  if (args.rad && !fs.existsSync(args.rad)) {
+    fail(`Streaming file not found: ${args.rad}`);
+  }
+  if (args.rad && path.extname(args.rad).toLowerCase() !== '.rad') {
+    fail('--rad must be a .rad file.');
   }
   const extension = path.extname(file).toLowerCase();
   const outputColumn = SPLAT_EXTENSIONS[extension];
@@ -153,6 +163,14 @@ async function main() {
         )
       : null;
 
+    const radPath = args.rad
+      ? await upload(
+          args.rad,
+          `imports/${space.space_id}/splat.rad`,
+          'application/octet-stream',
+        )
+      : null;
+
     const { data: job, error: jobError } = await supabase
       .from('reconstruction_jobs')
       .insert({
@@ -165,6 +183,7 @@ async function main() {
         input_storage_path: storagePath,
         [outputColumn]: outputPath,
         output_collision_path: collisionPath,
+        output_rad_path: radPath,
       })
       .select('job_id')
       .single();

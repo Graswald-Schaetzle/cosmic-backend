@@ -235,6 +235,9 @@ const reconstructionRoutes = async (app, supabase) => {
         if (job.output_spz_path) {
           urls.spz_url = await resolveOutputUrl(job.output_spz_path);
         }
+        if (job.output_rad_path) {
+          urls.rad_url = await resolveOutputUrl(job.output_rad_path);
+        }
         if (job.output_collision_path) {
           urls.collision_url = await resolveOutputUrl(job.output_collision_path);
         }
@@ -256,6 +259,7 @@ const reconstructionRoutes = async (app, supabase) => {
         output_ply_path,
         output_splat_path,
         output_spz_path,
+        output_rad_path,
         colmap_sparse_path,
         input_frame_count,
         colmap_point_count,
@@ -280,6 +284,7 @@ const reconstructionRoutes = async (app, supabase) => {
       if (output_ply_path) updateData.output_ply_path = output_ply_path;
       if (output_splat_path) updateData.output_splat_path = output_splat_path;
       if (output_spz_path) updateData.output_spz_path = output_spz_path;
+      if (output_rad_path) updateData.output_rad_path = output_rad_path;
       if (colmap_sparse_path)
         updateData.colmap_sparse_path = colmap_sparse_path;
       if (input_frame_count) updateData.input_frame_count = input_frame_count;
