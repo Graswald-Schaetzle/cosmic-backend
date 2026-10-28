@@ -235,6 +235,9 @@ const reconstructionRoutes = async (app, supabase) => {
         if (job.output_spz_path) {
           urls.spz_url = await resolveOutputUrl(job.output_spz_path);
         }
+        if (job.output_collision_path) {
+          urls.collision_url = await resolveOutputUrl(job.output_collision_path);
+        }
 
         res.json({ data: { job_id: job.job_id, ...urls }, error: null });
       } catch (err) {

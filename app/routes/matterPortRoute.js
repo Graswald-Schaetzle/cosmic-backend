@@ -22,17 +22,6 @@ const matterPortRoutes = async (app, supabase) => {
       responsible_user_id = null,
     } = req.body;
 
-    // Try to create a permanent Matterport tag (best-effort — does not block Supabase insert)
-    let matterport_tag_id = null;
-    try {
-      const mpResult = await createMattertag({ location_name, x, y, z, description, color, enabled, floorId });
-      if (mpResult?.data?.addMattertag?.id) {
-        matterport_tag_id = mpResult.data.addMattertag.id;
-      }
-    } catch {
-      // Matterport API unavailable — proceed without permanent tag
-    }
-
     // Resolve space_id: use provided value or fall back to the first available space
     let resolvedSpaceId = spaceId ?? null;
     if (!resolvedSpaceId) {
@@ -43,6 +32,31 @@ const matterPortRoutes = async (app, supabase) => {
         .limit(1)
         .single();
       resolvedSpaceId = defaultSpace?.space_id ?? null;
+    }
+
+    // Only spaces that are shown in Matterport get a permanent Matterport tag. Spaces shown as a
+    // splat scene use their own coordinate system, so a tag there would land in the wrong model.
+    let spaceHasMatterport = false;
+    if (resolvedSpaceId) {
+      const { data: space } = await supabase
+        .from('spaces')
+        .select('matterport_model_id')
+        .eq('space_id', resolvedSpaceId)
+        .single();
+      spaceHasMatterport = Boolean(space?.matterport_model_id);
+    }
+
+    // Try to create a permanent Matterport tag (best-effort — does not block Supabase insert)
+    let matterport_tag_id = null;
+    if (spaceHasMatterport) {
+      try {
+        const mpResult = await createMattertag({ location_name, x, y, z, description, color, enabled, floorId });
+        if (mpResult?.data?.addMattertag?.id) {
+          matterport_tag_id = mpResult.data.addMattertag.id;
+        }
+      } catch {
+        // Matterport API unavailable — proceed without permanent tag
+      }
     }
 
     // Always save to Supabase (authoritative data store)

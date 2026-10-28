@@ -11,7 +11,7 @@
  * Usage:
  *   node scripts/import-splat-space.js \
  *     --file ./splat.spz --name "Rustic modern home" --owner-email you@example.com \
- *     [--description "..."] [--activate] [--dry-run]
+ *     [--collision ./collision.glb] [--description "..."] [--activate] [--dry-run]
  *
  * Storage (--storage):
  *   gcs       (default) uploads to the 3D pipeline bucket; needs Google application default
@@ -67,6 +67,9 @@ async function main() {
     );
   }
   if (!fs.existsSync(file)) fail(`File not found: ${file}`);
+  if (args.collision && !fs.existsSync(args.collision)) {
+    fail(`Collision mesh not found: ${args.collision}`);
+  }
   const extension = path.extname(file).toLowerCase();
   const outputColumn = SPLAT_EXTENSIONS[extension];
   if (!outputColumn)
@@ -109,27 +112,46 @@ async function main() {
   console.log(`Created space ${space.space_id}`);
 
   try {
-    const storagePath = `imports/${space.space_id}/splat${extension}`;
-    let outputPath = storagePath;
-    if (args.storage === 'supabase') {
-      const { error: uploadError } = await supabase.storage
-        .from('splats')
-        .upload(storagePath, fs.readFileSync(file), {
-          contentType: 'application/octet-stream',
-          upsert: true,
-        });
-      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
-      outputPath = supabase.storage.from('splats').getPublicUrl(storagePath)
-        .data.publicUrl;
-      console.log(`Uploaded ${outputPath}`);
-    } else {
-      await new Storage().bucket(bucketName).upload(file, {
+    // Uploads a local file and returns what is stored in the DB: a bucket-relative path for GCS
+    // (signed on download) or the public URL for Supabase Storage.
+    const upload = async (localFile, storagePath, contentType) => {
+      if (args.storage === 'supabase') {
+        const { error: uploadError } = await supabase.storage
+          .from('splats')
+          .upload(storagePath, fs.readFileSync(localFile), {
+            contentType,
+            upsert: true,
+          });
+        if (uploadError)
+          throw new Error(`Upload failed: ${uploadError.message}`);
+        const { publicUrl } = supabase.storage
+          .from('splats')
+          .getPublicUrl(storagePath).data;
+        console.log(`Uploaded ${publicUrl}`);
+        return publicUrl;
+      }
+      await new Storage().bucket(bucketName).upload(localFile, {
         destination: storagePath,
         resumable: true,
-        contentType: 'application/octet-stream',
+        contentType,
       });
       console.log(`Uploaded gs://${bucketName}/${storagePath}`);
-    }
+      return storagePath;
+    };
+
+    const storagePath = `imports/${space.space_id}/splat${extension}`;
+    const outputPath = await upload(
+      file,
+      storagePath,
+      'application/octet-stream',
+    );
+    const collisionPath = args.collision
+      ? await upload(
+          args.collision,
+          `imports/${space.space_id}/collision.glb`,
+          'model/gltf-binary',
+        )
+      : null;
 
     const { data: job, error: jobError } = await supabase
       .from('reconstruction_jobs')
@@ -142,6 +164,7 @@ async function main() {
         // Required column; there is no capture input for an imported splat.
         input_storage_path: storagePath,
         [outputColumn]: outputPath,
+        output_collision_path: collisionPath,
       })
       .select('job_id')
       .single();
