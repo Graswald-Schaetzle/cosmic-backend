@@ -239,7 +239,20 @@ const reconstructionRoutes = async (app, supabase) => {
           urls.collision_url = await resolveOutputUrl(job.output_collision_path);
         }
 
-        res.json({ data: { job_id: job.job_id, ...urls }, error: null });
+        const { data: space } = await supabase
+          .from('spaces')
+          .select('splat_view')
+          .eq('space_id', job.space_id)
+          .maybeSingle();
+
+        res.json({
+          data: {
+            job_id: job.job_id,
+            ...urls,
+            splat_view: space?.splat_view ?? null,
+          },
+          error: null,
+        });
       } catch (err) {
         res.status(500).json({ error: err.message });
       }
