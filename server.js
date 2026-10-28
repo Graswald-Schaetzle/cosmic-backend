@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const {
   PORT: port = 3000,
   SUPABASE_URL,
@@ -52,6 +52,11 @@ const connectToServer = () => {
   app.use(cors(corsOptions));
   app.use(bodyParser.json({ limit: '100mb' }));
   app.use(bodyParser.urlencoded({ limit: '100mb', extended: true }));
+  // Express 5 no longer defaults req.body to {} for requests without a body.
+  app.use((req, res, next) => {
+    if (req.body === undefined) req.body = {};
+    next();
+  });
   app.use(cookieParser(COOKIE_SECRET));
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
