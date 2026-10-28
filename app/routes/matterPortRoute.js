@@ -20,7 +20,22 @@ const matterPortRoutes = async (app, supabase) => {
       spaceId,
       tag_type = 'object',
       responsible_user_id = null,
+      normal,
+      anchor_type = 'free',
+      anchor_object_id = null,
     } = req.body;
+
+    if (!['free', 'surface', 'object'].includes(anchor_type)) {
+      return res.status(400).json({ data: null, error: 'Invalid anchor_type' });
+    }
+    // The surface normal is optional, but all three components must come together.
+    const hasNormal =
+      Array.isArray(normal) &&
+      normal.length === 3 &&
+      normal.every((n) => typeof n === 'number' && Number.isFinite(n));
+    if (normal !== undefined && normal !== null && !hasNormal) {
+      return res.status(400).json({ data: null, error: 'normal must be three numbers' });
+    }
 
     // Resolve space_id: use provided value or fall back to the first available space
     let resolvedSpaceId = spaceId ?? null;
@@ -37,13 +52,16 @@ const matterPortRoutes = async (app, supabase) => {
     // Only spaces that are shown in Matterport get a permanent Matterport tag. Spaces shown as a
     // splat scene use their own coordinate system, so a tag there would land in the wrong model.
     let spaceHasMatterport = false;
+    let frameVersion = null;
     if (resolvedSpaceId) {
       const { data: space } = await supabase
         .from('spaces')
-        .select('matterport_model_id')
+        .select('matterport_model_id, space_frame')
         .eq('space_id', resolvedSpaceId)
         .single();
       spaceHasMatterport = Boolean(space?.matterport_model_id);
+      // Tags are stored in the space frame; remember which calibration they were placed under.
+      frameVersion = space?.space_frame?.version ?? null;
     }
 
     // Try to create a permanent Matterport tag (best-effort — does not block Supabase insert)
@@ -63,6 +81,8 @@ const matterPortRoutes = async (app, supabase) => {
     const locationInfo = {
       location_name, description, color, x, y, z, matterport_tag_id,
       space_id: resolvedSpaceId, tag_type, responsible_user_id,
+      anchor_type, anchor_object_id, frame_version: frameVersion,
+      ...(hasNormal && { normal_x: normal[0], normal_y: normal[1], normal_z: normal[2] }),
     };
     const { data, error } = await supabase.from('locations').insert(locationInfo).select('*');
 

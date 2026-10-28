@@ -241,7 +241,7 @@ const reconstructionRoutes = async (app, supabase) => {
 
         const { data: space } = await supabase
           .from('spaces')
-          .select('splat_view')
+          .select('splat_view, space_frame')
           .eq('space_id', job.space_id)
           .maybeSingle();
 
@@ -250,6 +250,7 @@ const reconstructionRoutes = async (app, supabase) => {
             job_id: job.job_id,
             ...urls,
             splat_view: space?.splat_view ?? null,
+            space_frame: space?.space_frame ?? null,
           },
           error: null,
         });
