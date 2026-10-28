@@ -1,6 +1,12 @@
 const multer = require('multer');
 const fs = require('fs');
 const { tokenValidator } = require('../utils');
+const {
+  parsePlacement,
+  currentPlacement,
+  frameDelta,
+  buildFrame,
+} = require('../spaceFrame');
 
 const upload = multer({ dest: 'uploads/' });
 const USDZ_BUCKET = 'usdz-models';
@@ -175,6 +181,65 @@ const spaceRoutes = async (app, supabase) => {
         locations: locationsError?.message || null,
       },
     });
+  });
+
+  // PUT /spaces/:id/frame — calibrates how the space's splat and collision mesh sit in the space
+  // frame. Tags of the space move with the model (see set_space_frame in the migration).
+  // Body: { splat: { scale, rotation_deg: [x, y, z], translation: [x, y, z] }, expected_version? }
+  app.put('/spaces/:id/frame', tokenValidator('jwt'), async (req, res) => {
+    try {
+      const spaceId = Number(req.params.id);
+      if (!Number.isInteger(spaceId)) {
+        return res.status(400).json({ error: 'Invalid space id' });
+      }
+
+      let placement;
+      try {
+        placement = parsePlacement(req.body.splat);
+      } catch (err) {
+        return res.status(400).json({ error: err.message });
+      }
+
+      const { data: space, error: spaceError } = await supabase
+        .from('spaces')
+        .select('space_id, owner_user_id, splat_view, space_frame')
+        .eq('space_id', spaceId)
+        .maybeSingle();
+      if (spaceError) return res.status(500).json({ error: spaceError.message });
+      if (!space) return res.status(404).json({ error: 'Space not found' });
+
+      if (space.owner_user_id !== req.user_id) {
+        const { data: membership } = await supabase
+          .from('space_memberships')
+          .select('id')
+          .eq('space_id', spaceId)
+          .eq('user_id', req.user_id)
+          .maybeSingle();
+        if (!membership) return res.status(403).json({ error: 'No access to this space' });
+      }
+
+      const version = space.space_frame?.version ?? 0;
+      const { expected_version: expectedVersion } = req.body;
+      if (expectedVersion !== undefined && expectedVersion !== version) {
+        return res.status(409).json({
+          error: 'The space was calibrated in the meantime; reload and try again',
+          version,
+        });
+      }
+
+      const frame = buildFrame(version + 1, placement);
+      const delta = frameDelta(currentPlacement(space), placement);
+      const { error } = await supabase.rpc('set_space_frame', {
+        p_space_id: spaceId,
+        p_frame: frame,
+        p_delta: delta,
+      });
+      if (error) return res.status(500).json({ error: error.message });
+
+      res.json({ data: frame, error: null });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.put('/spaces/:id', async (req, res) => {
