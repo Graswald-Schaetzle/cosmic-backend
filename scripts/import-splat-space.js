@@ -11,7 +11,11 @@
  * Usage:
  *   node scripts/import-splat-space.js \
  *     --file ./splat.spz --name "Rustic modern home" --owner-email you@example.com \
- *     [--collision ./collision.glb] [--description "..."] [--activate] [--dry-run]
+ *     [--collision ./collision.glb] [--description "..."] [--activate] [--dry-run] \\
+     [--minimap ./minimap.png --minimap-frame ./minimap-frame.json]
+ *
+ * Minimap (optional): a top-down floor plan image and where it sits, in the splat's source
+ * coordinates. See docs/minimap.md; scripts/set-minimap.js adds one to an existing job.
  *
  * Storage (--storage):
  *   gcs       (default) uploads to the 3D pipeline bucket; needs Google application default
@@ -27,6 +31,7 @@ const fs = require('fs');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 const { Storage } = require('@google-cloud/storage');
+const { readMinimapFrame } = require('./minimapArgs');
 
 const SPLAT_EXTENSIONS = {
   '.spz': 'output_spz_path',
@@ -70,6 +75,15 @@ async function main() {
   if (args.collision && !fs.existsSync(args.collision)) {
     fail(`Collision mesh not found: ${args.collision}`);
   }
+  if (args.minimap && !fs.existsSync(args.minimap)) {
+    fail(`Minimap image not found: ${args.minimap}`);
+  }
+  if (args.minimap && !args['minimap-frame']) {
+    fail('--minimap needs --minimap-frame (see docs/minimap.md).');
+  }
+  const minimapFrame = args.minimap
+    ? readMinimapFrame(args['minimap-frame'], fail)
+    : null;
   const extension = path.extname(file).toLowerCase();
   const outputColumn = SPLAT_EXTENSIONS[extension];
   if (!outputColumn)
@@ -153,6 +167,14 @@ async function main() {
         )
       : null;
 
+    const minimapPath = args.minimap
+      ? await upload(
+          args.minimap,
+          `imports/${space.space_id}/minimap.png`,
+          'image/png',
+        )
+      : null;
+
     const { data: job, error: jobError } = await supabase
       .from('reconstruction_jobs')
       .insert({
@@ -165,6 +187,8 @@ async function main() {
         input_storage_path: storagePath,
         [outputColumn]: outputPath,
         output_collision_path: collisionPath,
+        output_minimap_path: minimapPath,
+        output_minimap_frame: minimapFrame,
       })
       .select('job_id')
       .single();

@@ -1,6 +1,7 @@
 const multer = require('multer');
 const fs = require('fs');
 const { tokenValidator } = require('../utils');
+const { minimapOutput } = require('../minimapFrame');
 const {
   generateSignedUploadUrl,
   generateSignedDownloadUrl,
@@ -239,6 +240,13 @@ const reconstructionRoutes = async (app, supabase) => {
           urls.collision_url = await resolveOutputUrl(job.output_collision_path);
         }
 
+        const minimap = minimapOutput(
+          job.output_minimap_path
+            ? await resolveOutputUrl(job.output_minimap_path)
+            : null,
+          job.output_minimap_frame,
+        );
+
         const { data: space } = await supabase
           .from('spaces')
           .select('splat_view, space_frame')
@@ -251,6 +259,7 @@ const reconstructionRoutes = async (app, supabase) => {
             ...urls,
             splat_view: space?.splat_view ?? null,
             space_frame: space?.space_frame ?? null,
+            minimap,
           },
           error: null,
         });
