@@ -9,12 +9,12 @@ render, cleaned up into line art). Cosmic uses the image as it is.
 
 ## Data
 
-`reconstruction_jobs` (migration `20261029000001_reconstruction_job_minimap.sql`):
+`reconstruction_jobs` (migration `20261029000002_reconstruction_job_minimap.sql`):
 
-| column                  | content                                                          |
-| ----------------------- | ---------------------------------------------------------------- |
-| `output_minimap_path`   | the image: a bucket-relative path (signed) or a full https URL   |
-| `output_minimap_frame`  | where the image sits, see below                                  |
+| column                 | content                                                        |
+| ---------------------- | -------------------------------------------------------------- |
+| `output_minimap_path`  | the image: a bucket-relative path (signed) or a full https URL |
+| `output_minimap_frame` | where the image sits, see below                                |
 
 `GET /reconstruction-jobs/:id/output` returns `minimap: { url, frame }` (or `null`).
 
@@ -62,21 +62,9 @@ The frame for the SpAItial world "Rustic modern home" (space `spaitial-rustic-ho
 
 ```json
 {
-  "origin": [
-    -8.1908,
-    0.64,
-    5.4832
-  ],
-  "u": [
-    12.9337,
-    0.0,
-    0.1746
-  ],
-  "v": [
-    0.1746,
-    0.0,
-    -12.9337
-  ]
+  "origin": [-8.1908, 0.64, 5.4832],
+  "u": [12.9337, 0.0, 0.1746],
+  "v": [0.1746, 0.0, -12.9337]
 }
 ```
 

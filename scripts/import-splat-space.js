@@ -11,11 +11,15 @@
  * Usage:
  *   node scripts/import-splat-space.js \
  *     --file ./splat.spz --name "Rustic modern home" --owner-email you@example.com \
- *     [--collision ./collision.glb] [--description "..."] [--activate] [--dry-run] \\
-     [--minimap ./minimap.png --minimap-frame ./minimap-frame.json]
+ *     [--collision ./collision.glb] [--description "..."] [--activate] [--dry-run] \
+ *     [--minimap ./minimap.png --minimap-frame ./minimap-frame.json]
  *
  * Minimap (optional): a top-down floor plan image and where it sits, in the splat's source
  * coordinates. See docs/minimap.md; scripts/set-minimap.js adds one to an existing job.
+ *
+ * With --collision the space frame is calibrated automatically from the collision mesh (floor
+ * level and tilt, upside-down splat, origin on the floor; see app/autoFrame.js). The space then
+ * needs no manual calibration. Without it, or when no floor is found, the space stays uncalibrated.
  *
  * Storage (--storage):
  *   gcs       (default) uploads to the 3D pipeline bucket; needs Google application default
@@ -32,6 +36,8 @@ const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 const { Storage } = require('@google-cloud/storage');
 const { readMinimapFrame } = require('./minimapArgs');
+const { readGlbMesh, estimatePlacement } = require('../app/autoFrame');
+const { buildFrame } = require('../app/spaceFrame');
 
 const SPLAT_EXTENSIONS = {
   '.spz': 'output_spz_path',
@@ -53,6 +59,29 @@ function parseArgs(argv) {
     }
   }
   return args;
+}
+
+/** The calibrated space frame for a collision mesh, or null (with a warning) if it has no floor. */
+function autoFrame(collisionFile) {
+  try {
+    const { placement, diagnostics } = estimatePlacement(
+      readGlbMesh(fs.readFileSync(collisionFile)),
+    );
+    console.log(
+      `Auto-calibrated: floor ${diagnostics.floorAreaM2} m2, tilt ${diagnostics.tiltDeg} deg, ` +
+        `ceiling height ${diagnostics.ceilingHeightM ?? 'not found'} m`,
+    );
+    const height = diagnostics.ceilingHeightM;
+    if (height === null || height < 2 || height > 5) {
+      console.warn(
+        'Warning: the ceiling height looks odd; check scale and orientation in the viewer.',
+      );
+    }
+    return buildFrame(1, placement);
+  } catch (error) {
+    console.warn(`Not auto-calibrated: ${error.message}`);
+    return null;
+  }
 }
 
 function fail(message) {
@@ -104,6 +133,8 @@ async function main() {
     .single();
   if (userError || !user) fail(`No user with e-mail ${ownerEmail}.`);
 
+  const spaceFrame = args.collision ? autoFrame(args.collision) : null;
+
   const sizeMb = (fs.statSync(file).size / 1024 / 1024).toFixed(1);
   console.log(
     `Importing ${file} (${sizeMb} MB) as "${name}" for user ${user.user_id}`,
@@ -119,6 +150,7 @@ async function main() {
       name,
       description: description || null,
       owner_user_id: user.user_id,
+      space_frame: spaceFrame,
     })
     .select('*')
     .single();

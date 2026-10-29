@@ -1,6 +1,6 @@
 /**
  * Minimap frame: where a minimap image sits in the source coordinates of a splat scene. See
- * supabase/migrations/20261029000001_reconstruction_job_minimap.sql.
+ * supabase/migrations/20261029000002_reconstruction_job_minimap.sql.
  */
 
 const isVec3 = (value) =>
