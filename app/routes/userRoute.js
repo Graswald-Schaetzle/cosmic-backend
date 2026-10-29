@@ -102,6 +102,60 @@ const userRoutes = async (app, supabase) => {
     return res.json({ user });
   });
 
+  // GET /auth/user/default-space — returns the user's start space (starred in "My Spaces")
+  app.get('/auth/user/default-space', tokenValidator('jwt'), async ({ user_id }, res) => {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('default_space_id')
+      .eq('user_id', user_id)
+      .single();
+
+    if (error || !user)
+      return res.status(404).json({ error: 'User not found' });
+
+    return res.json({ default_space_id: user.default_space_id });
+  });
+
+  // PUT /auth/user/default-space — sets (or clears with null) the user's start space
+  app.put('/auth/user/default-space', tokenValidator('jwt'), async (req, res) => {
+    const userId = req.user_id;
+    const space_id = req.body.space_id ?? null;
+
+    if (space_id !== null) {
+      if (!Number.isInteger(space_id))
+        return res.status(400).json({ error: 'space_id must be an integer or null' });
+
+      // The space must be owned by the user or shared with them
+      const [{ data: owned }, { data: membership }] = await Promise.all([
+        supabase
+          .from('spaces')
+          .select('space_id')
+          .eq('space_id', space_id)
+          .eq('owner_user_id', userId)
+          .maybeSingle(),
+        supabase
+          .from('space_memberships')
+          .select('space_id')
+          .eq('space_id', space_id)
+          .eq('user_id', userId)
+          .maybeSingle(),
+      ]);
+
+      if (!owned && !membership)
+        return res.status(403).json({ error: 'No access to this space' });
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .update({ default_space_id: space_id })
+      .eq('user_id', userId);
+
+    if (error)
+      return res.status(400).json({ error: error.message });
+
+    return res.json({ default_space_id: space_id });
+  });
+
   app.post('/auth/login', async (req, res) => {
     const { supabase_id, first_name, last_name } = req.body;
 
