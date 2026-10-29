@@ -45,7 +45,7 @@ Doku: `docs/architecture.md`, `docs/domain-model.md`, `docs/space-coordinate-sys
   URL `https://cosmic-backend-701520654148.europe-west4.run.app`). Das Backend läuft NICHT in Supabase (dort gibt es keine Backend-Edge-Functions,
   nur DB und Storage). Der Workflow `.github/workflows/deploy.yml` baut bei jedem Push auf `main` ein Docker-Image und deployt es automatisch.
   Das Frontend ruft diese URL auf (Stand 29.10.2026 im Live-Bundle auf Vercel bestätigt).
-- Das Frontend hat zusätzlich einen Cloud-Run-Workflow (`deploy.yml`), der ebenfalls bei jedem Push auf `main` läuft. Als Live-Version gilt Vercel.
+- Das Frontend wird ausschließlich über Vercel ausgeliefert (der frühere Cloud-Run-Workflow, `Dockerfile` und `nginx.conf` wurden entfernt).
 - **Nicht mehr aktuell, nicht verwenden**: die RunPod-3D-Rekonstruktions-Pipeline (`worker/`, `infra/`, `docs/3d-pipeline.md`, Workflow `build-worker.yml`).
   Neue Splats kommen als Import (`scripts/import-splat-space.js`) nach Supabase Storage.
 - Die MCP-Konnektoren (Supabase, GitHub, Vercel) werden in den Claude-Einstellungen verbunden, nicht in dieser Datei.
@@ -60,7 +60,7 @@ Frontend-Variablen mit `VITE_`-Präfix, u. a. `VITE_API_BASE_URL`.
 - Vor dem Push `npm run lint`, `npm run type-check` und `npm run build` (Frontend) laufen lassen.
 - Kleine, gezielte Änderungen; bestehende Muster und Dateistruktur des jeweiligen Repos übernehmen.
 - Wenn Frontend und Backend zusammenhängen (neuer Endpunkt, neue Spalte): Backend + Migration zuerst, dann Frontend.
-- Jeder Push auf `main` deployt automatisch (Backend -> Cloud Run, Frontend -> Vercel/Cloud Run): nur getestete Änderungen pushen.
+- Jeder Push auf `main` deployt automatisch (Backend -> Cloud Run, Frontend -> Vercel): nur getestete Änderungen pushen.
 - Vor dem Ändern von Datenbank oder Live-Diensten (Supabase, Vercel, Cloud Run) kurz sagen, was passiert, und bei Löschen/Überschreiben nachfragen.
 
 ## UI-Leitlinien (aus der bestehenden UI abgeleitet)
