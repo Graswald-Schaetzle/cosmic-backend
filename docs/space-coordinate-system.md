@@ -37,6 +37,20 @@ frame down; no tag changes. `splat_view.rotation_deg` is legacy and ignored once
 
 `GET /reconstruction-jobs/:id/output` returns `space_frame` next to `splat_view`.
 
+## Automatic calibration on import
+
+`scripts/import-splat-space.js --collision collision.glb` writes the frame itself (version 1),
+estimated from the collision mesh by `app/autoFrame.js`:
+
+- the splat is turned upside down (SpAItial exports are Y down, the same 180° about X as before),
+- the floor (largest upward-facing plane) is levelled and put at y = 0,
+- the centre of the floor is the origin (x = z = 0), the heading is not set,
+- the scale stays 1 (SpAItial exports are roughly metric).
+
+The script prints the floor area, its tilt and the ceiling height; a ceiling height outside 2–5 m
+usually means a wrong scale or orientation. When no floor is found the space is left uncalibrated
+and `PUT /spaces/:id/frame` still works. This has been checked against one SpAItial scene only.
+
 ## Tags
 
 `POST /locations` additionally takes `normal: [x, y, z]` (surface normal, space frame),
