@@ -245,36 +245,46 @@ const matterPortRoutes = async (app, supabase) => {
   });
 
   app.delete('/locations/:id', async (req, res) => {
-    const { id } = req.params;
+    try {
+      const { id } = req.params;
 
-    const { data: location, error: selectError } = await supabase
-      .from('locations')
-      .select('matterport_tag_id')
-      .eq('location_id', id)
-      .single();
+      const { data: location, error: selectError } = await supabase
+        .from('locations')
+        .select('matterport_tag_id')
+        .eq('location_id', id)
+        .single();
 
-    if (selectError || !location) {
-      return res.status(404).json({ error: 'Location not found' });
+      if (selectError || !location) {
+        return res.status(404).json({ error: 'Location not found' });
+      }
+
+      // Remove the permanent Matterport tag (best-effort — does not block the Supabase delete)
+      if (location.matterport_tag_id) {
+        try {
+          await deleteMattertag(location.matterport_tag_id);
+        } catch (err) {
+          console.error('Failed to delete Matterport tag:', err.message);
+        }
+      }
+
+      const { error: deleteError } = await supabase
+        .from('locations')
+        .delete()
+        .eq('location_id', id);
+
+      if (deleteError) {
+        return res.status(500).json({ error: deleteError.message });
+      }
+
+      const { data: locations, error } = await supabase
+        .from('locations')
+        .select('*');
+
+      res.json({ locations, error });
+    } catch (err) {
+      console.error('Failed to delete location:', err.message);
+      res.status(500).json({ error: err.message });
     }
-
-    if (location.matterport_tag_id) {
-      await deleteMattertag(location.matterport_id);
-    }
-
-    const { error: deleteError } = await supabase
-      .from('locations')
-      .delete()
-      .eq('location_id', id);
-
-    if (deleteError) {
-      return res.status(500).json({ error: deleteError.message });
-    }
-
-    const { data: locations, error } = await supabase
-      .from('locations')
-      .select('*');
-
-    res.json({ locations, error });
   });
 };
 

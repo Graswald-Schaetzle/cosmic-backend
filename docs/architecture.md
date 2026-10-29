@@ -150,7 +150,6 @@ The API documentation is statically mounted (no runtime-generated OpenAPI).
    - `reccuring` (instead of `recurring`) in type definitions (`app/types/database.types.ts`).
 
 2. **Error-prone field/name usage**
-   - In `matterPortRoute.js`, delete logic uses `location.matterport_id` even though `matterport_tag_id` is selected.
    - In `synhronizeModels`, location existence is checked via `.eq('location_id', matterport_tag_id)` while a separate `matterport_tag_id` field exists.
 
 3. **Security notes (open endpoints without `tokenValidator`)**
