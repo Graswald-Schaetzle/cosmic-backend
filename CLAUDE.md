@@ -33,6 +33,7 @@ Befehle: `npm install`, `npm run dev`, `npm run build` (= `tsc && vite build`), 
 **Backend**: Node.js, Express-Monolith (`server.js`, Routen in `app/routes/*`), Supabase-Client,
 JWT-Login (`/auth/login`), Swagger unter `/api-docs`. Befehle: `yarn install`, `yarn dev`, `yarn build`, `yarn start`.
 Doku: `docs/architecture.md`, `docs/domain-model.md`, `docs/space-coordinate-system.md`, `docs/minimap.md`.
+Raum-Captures über SpAItial Echo-3 (`/room-captures`, `app/routes/roomCaptureRoute.js`): `docs/room-captures.md`. Tests: `npx jest`.
 
 ## Dienste & Konnektoren
 - **Supabase**: Postgres + Storage. Projekt-Ref `haaaayxcejprzqjainzp` (`https://haaaayxcejprzqjainzp.supabase.co`).
