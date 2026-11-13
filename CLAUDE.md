@@ -14,8 +14,12 @@ mit Kalibrierung und ein Start-Space pro Nutzer.
 - Ein Space (Haus/Wohnung) besteht aus mehreren Räumen und Stockwerken. **Jeder Raum hat seinen eigenen Splat**
   (eigener `reconstruction_job` mit `room_id`, Aufnahme über die iOS-App und SpAItial Echo-3).
 - Aufgenommen wird Raum für Raum bei **geschlossenen Türen**: Ein Splat wird beendet, dann beginnt im nächsten Raum ein neuer.
-- Der Viewer lädt zuerst den **Startraum** (voraussichtlich der größte Raum). Alle weiteren Räume werden **nachgeladen, sobald man
-  an der Tür bzw. Schwelle zum nächsten Raum steht oder ihn betritt**, nicht alle auf einmal.
+- Warum: Ändert sich in einem Raum etwas, muss nur dieser Raum neu gefilmt werden. Bei geschlossenen Türen steckt kein veralteter Nachbarraum im Splat;
+  bei offenen Türen wären die Räume nach einer Neuaufnahme nicht mehr synchron. Kleinere Splats laden außerdem schneller.
+- Der Viewer lädt zuerst den **Startraum**. Er ist **pro Space festlegbar**; ohne Festlegung gilt der Raum des **allerersten Fotos** des Spaces.
+  Alle weiteren Räume werden **nachgeladen, sobald man an der Tür bzw. Schwelle zum nächsten Raum steht oder ihn betritt**, nicht alle auf einmal.
+- Ausrichtung der Räume: Der Nutzer markiert in der iOS-App die Tür zum nächsten Raum und startet dort direkt hinter der Tür.
+  Das ergibt eine grobe Zuordnung des Übergangs, auch wenn das ARKit-Tracking abreißt (Details: `cosmic-ios/docs/echo3-capture-plan.md`).
 - Stand im Code: Der Viewer (`SplatScene`, Props `splatUrl`/`collisionUrl`) kann bisher nur **einen** Splat pro Space anzeigen und muss dafür umgebaut werden.
   Im Backend gibt es `room_connections` (Türverknüpfungen) und `reconstruction_jobs.room_frame` (Lage eines Raums im Space), die noch kein Endpunkt befüllt.
   Wie die Räume zueinander ausgerichtet werden, hängt davon ab, in welchem Koordinatensystem Echo-3 die Splats zurückgibt (noch ungeklärt).
