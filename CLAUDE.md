@@ -10,6 +10,16 @@ Der **Splat-Viewer** (.spz + collision.glb, z. B. Spaitial-Importe) ist der Haup
 mit Kalibrierung und ein Start-Space pro Nutzer.
 **Matterport wird perspektivisch ersetzt**: kein neuer Code und keine neuen Features dafür; Neues nur für den Splat-Viewer bauen.
 
+## Mehrere Räume pro Space (Zielbild, vom Nutzer festgelegt)
+- Ein Space (Haus/Wohnung) besteht aus mehreren Räumen und Stockwerken. **Jeder Raum hat seinen eigenen Splat**
+  (eigener `reconstruction_job` mit `room_id`, Aufnahme über die iOS-App und SpAItial Echo-3).
+- Aufgenommen wird Raum für Raum bei **geschlossenen Türen**: Ein Splat wird beendet, dann beginnt im nächsten Raum ein neuer.
+- Der Viewer lädt zuerst den **Startraum** (voraussichtlich der größte Raum). Alle weiteren Räume werden **nachgeladen, sobald man
+  an der Tür bzw. Schwelle zum nächsten Raum steht oder ihn betritt**, nicht alle auf einmal.
+- Stand im Code: Der Viewer (`SplatScene`, Props `splatUrl`/`collisionUrl`) kann bisher nur **einen** Splat pro Space anzeigen und muss dafür umgebaut werden.
+  Im Backend gibt es `room_connections` (Türverknüpfungen) und `reconstruction_jobs.room_frame` (Lage eines Raums im Space), die noch kein Endpunkt befüllt.
+  Wie die Räume zueinander ausgerichtet werden, hängt davon ab, in welchem Koordinatensystem Echo-3 die Splats zurückgibt (noch ungeklärt).
+
 ## Repos (GitHub-Organisation `Graswald-Schaetzle`)
 | Repo | Inhalt |
 |---|---|
