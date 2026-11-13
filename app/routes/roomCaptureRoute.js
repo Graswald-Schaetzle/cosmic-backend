@@ -6,6 +6,8 @@
  */
 const { tokenValidator } = require('../utils');
 const spaitial = require('../resolvers/spaitialResolver');
+const { hasSpaceAccess } = require('../spaceAccess');
+const { tryRecomputeRoomFrames } = require('../resolvers/roomsResolver');
 
 const CAPTURES_BUCKET = 'captures';
 const SPLATS_BUCKET = 'splats';
@@ -22,24 +24,6 @@ const splatPath = (jobId) =>
   `captures/${jobId}/splat.${spaitial.OUTPUT_FORMAT}`;
 
 const isRoomCapture = (job) => job && job.provider === 'spaitial';
-
-/** True when the user owns the space or is a member of it. */
-async function hasSpaceAccess(supabase, spaceId, userId) {
-  const { data: space } = await supabase
-    .from('spaces')
-    .select('space_id, owner_user_id')
-    .eq('space_id', spaceId)
-    .maybeSingle();
-  if (!space) return null;
-  if (space.owner_user_id === userId) return true;
-  const { data: membership } = await supabase
-    .from('space_memberships')
-    .select('id')
-    .eq('space_id', spaceId)
-    .eq('user_id', userId)
-    .maybeSingle();
-  return Boolean(membership);
-}
 
 async function loadJob(supabase, jobId) {
   const { data } = await supabase
@@ -110,13 +94,20 @@ async function importResult(supabase, job, providerStatus) {
       .from(SPLATS_BUCKET)
       .getPublicUrl(path).data;
 
-    return await updateJob(supabase, job.job_id, {
+    const completed = await updateJob(supabase, job.job_id, {
       status: 'completed',
       output_spz_path: publicUrl,
       error_message: null,
       provider_status: providerStatus,
       worker_finished_at: new Date().toISOString(),
     });
+    // This capture now stands for its room: place it relative to the other rooms.
+    if (completed.room_id) {
+      const changes = await tryRecomputeRoomFrames(supabase, job.space_id);
+      const own = changes.find((c) => c.job_id === completed.job_id);
+      if (own) completed.room_frame = own.room_frame;
+    }
+    return completed;
   } catch (error) {
     // Leave the job running so the next status check tries the import again.
     console.error(
@@ -162,6 +153,49 @@ async function syncJob(supabase, job) {
   return updateJob(supabase, job.job_id, changes);
 }
 
+/**
+ * The floor a capture belongs to: the given one, else the space's floor with that name, which is
+ * created when it does not exist yet. Returns null without a floor.
+ */
+async function resolveFloor(supabase, spaceId, floorId, floorName) {
+  if (floorId) {
+    const { data: floor } = await supabase
+      .from('floors')
+      .select('floor_id')
+      .eq('floor_id', floorId)
+      .eq('space_id', spaceId)
+      .maybeSingle();
+    if (!floor) {
+      const error = new Error('floor_id does not belong to this space');
+      error.status = 400;
+      throw error;
+    }
+    return floor.floor_id;
+  }
+  const name = typeof floorName === 'string' ? floorName.trim() : '';
+  if (!name) return null;
+
+  const { data: floors, error: floorsError } = await supabase
+    .from('floors')
+    .select('floor_id, name, sequence')
+    .eq('space_id', spaceId);
+  if (floorsError) throw new Error(floorsError.message);
+  const existing = floors.find(
+    (floor) => floor.name.trim().toLowerCase() === name.toLowerCase(),
+  );
+  if (existing) return existing.floor_id;
+
+  const nextSequence =
+    floors.reduce((max, floor) => Math.max(max, floor.sequence ?? 0), -1) + 1;
+  const { data: created, error } = await supabase
+    .from('floors')
+    .insert({ space_id: spaceId, name, sequence: nextSequence })
+    .select('floor_id')
+    .single();
+  if (error) throw new Error(error.message);
+  return created.floor_id;
+}
+
 /** Loads a room capture and checks access; answers the request itself when that fails. */
 async function authorizedJob(supabase, req, res) {
   const job = await loadJob(supabase, req.params.id);
@@ -190,14 +224,16 @@ const roomCaptureRoutes = async (app, supabase) => {
   });
 
   // Registers a capture and returns the URLs the app uploads its files to.
-  // Body: { space_id, title, frame_count, room_id? | room_name?, floor_id?, has_lidar_mesh? }
+  // Body: { space_id, title, frame_count, room_id? | room_name?, floor_id? | floor_name?,
+  //         captured_at?, capture_session_id?, has_lidar_mesh? }
   app.post('/room-captures', tokenValidator('jwt'), async (req, res) => {
     try {
       const {
         space_id: spaceId,
         title,
         room_name: roomName,
-        floor_id: floorId,
+        captured_at: capturedAt,
+        capture_session_id: captureSessionId,
       } = req.body;
       const frameCount = Number(req.body.frame_count);
       if (!spaceId || !title) {
@@ -207,12 +243,29 @@ const roomCaptureRoutes = async (app, supabase) => {
       }
       const invalid = spaitial.frameCountError(frameCount);
       if (invalid) return res.status(400).json({ error: invalid });
+      if (capturedAt != null && Number.isNaN(Date.parse(capturedAt))) {
+        return res
+          .status(400)
+          .json({ error: 'captured_at must be an ISO 8601 date' });
+      }
+      if (captureSessionId != null && typeof captureSessionId !== 'string') {
+        return res
+          .status(400)
+          .json({ error: 'capture_session_id must be a string' });
+      }
 
       const access = await hasSpaceAccess(supabase, spaceId, req.user_id);
       if (access === null)
         return res.status(404).json({ error: 'Space not found' });
       if (!access)
         return res.status(403).json({ error: 'No access to this space' });
+
+      const floorId = await resolveFloor(
+        supabase,
+        spaceId,
+        req.body.floor_id,
+        req.body.floor_name,
+      );
 
       let roomId = req.body.room_id || null;
       if (roomId) {
@@ -226,6 +279,12 @@ const roomCaptureRoutes = async (app, supabase) => {
           return res
             .status(400)
             .json({ error: 'room_id does not belong to this space' });
+        if (floorId) {
+          await supabase
+            .from('rooms')
+            .update({ floor_id: floorId })
+            .eq('room_id', roomId);
+        }
       } else if (roomName) {
         const { data: room, error: roomError } = await supabase
           .from('rooms')
@@ -254,6 +313,8 @@ const roomCaptureRoutes = async (app, supabase) => {
           input_frame_count: frameCount,
           input_storage_path: '',
           provider: 'spaitial',
+          captured_at: capturedAt ? new Date(capturedAt).toISOString() : null,
+          capture_session_id: captureSessionId || null,
         })
         .select('*')
         .single();
@@ -289,7 +350,7 @@ const roomCaptureRoutes = async (app, supabase) => {
         error: null,
       });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(error.status || 500).json({ error: error.message });
     }
   });
 
@@ -311,11 +372,9 @@ const roomCaptureRoutes = async (app, supabase) => {
           .from(CAPTURES_BUCKET)
           .createSignedUrl(job.input_storage_path, ZIP_URL_TTL_SECONDS);
         if (signError) {
-          return res
-            .status(400)
-            .json({
-              error: `The capture ZIP has not been uploaded: ${signError.message}`,
-            });
+          return res.status(400).json({
+            error: `The capture ZIP has not been uploaded: ${signError.message}`,
+          });
         }
 
         let world;

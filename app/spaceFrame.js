@@ -120,4 +120,7 @@ module.exports = {
   frameDelta,
   applyDelta,
   buildFrame,
+  toAffine,
+  multiplyLinear,
+  applyLinear,
 };

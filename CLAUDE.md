@@ -20,9 +20,12 @@ mit Kalibrierung und ein Start-Space pro Nutzer.
   Alle weiteren Räume werden **nachgeladen, sobald man an der Tür bzw. Schwelle zum nächsten Raum steht oder ihn betritt**, nicht alle auf einmal.
 - Ausrichtung der Räume: Der Nutzer markiert in der iOS-App die Tür zum nächsten Raum und startet dort direkt hinter der Tür.
   Das ergibt eine grobe Zuordnung des Übergangs, auch wenn das ARKit-Tracking abreißt (Details: `cosmic-ios/docs/echo3-capture-plan.md`).
-- Stand im Code: Der Viewer (`SplatScene`, Props `splatUrl`/`collisionUrl`) kann bisher nur **einen** Splat pro Space anzeigen und muss dafür umgebaut werden.
-  Im Backend gibt es `room_connections` (Türverknüpfungen) und `reconstruction_jobs.room_frame` (Lage eines Raums im Space), die noch kein Endpunkt befüllt.
-  Wie die Räume zueinander ausgerichtet werden, hängt davon ab, in welchem Koordinatensystem Echo-3 die Splats zurückgibt (noch ungeklärt).
+- Stand im Code (Branch `feature/multi-room-spaces`, noch nicht deployt, Migration `20261113000001_multi_room_spaces.sql` noch nicht angewendet):
+  Das Backend liefert mit `GET /spaces/:id/rooms` alle Räume eines Spaces mit Splat, Lage (`room_frame`) und Türen, speichert den Startraum
+  (`PUT /spaces/:id/start-room`) und die Türverknüpfungen (`/room-connections`). Aus den Türen berechnet es die Lage jedes Raums relativ zum Startraum
+  (`app/roomFrames.js`). Vertrag für iOS und Viewer: `docs/multi-room-spaces.md`.
+- Ungeprüft: Die berechnete Lage setzt voraus, dass Echo-3 den Splat im Koordinatensystem der eingereichten Kameraposen zurückgibt. Das zeigt erst der
+  erste echte Echo-3-Job. Raum-Captures haben außerdem noch kein Kollisionsnetz.
 
 ## Repos (GitHub-Organisation `Graswald-Schaetzle`)
 | Repo | Inhalt |
@@ -47,7 +50,7 @@ Befehle: `npm install`, `npm run dev`, `npm run build` (= `tsc && vite build`), 
 **Backend**: Node.js, Express-Monolith (`server.js`, Routen in `app/routes/*`), Supabase-Client,
 JWT-Login (`/auth/login`), Swagger unter `/api-docs`. Befehle: `yarn install`, `yarn dev`, `yarn build`, `yarn start`.
 Doku: `docs/architecture.md`, `docs/domain-model.md`, `docs/space-coordinate-system.md`, `docs/minimap.md`.
-Raum-Captures über SpAItial Echo-3 (`/room-captures`, `app/routes/roomCaptureRoute.js`): `docs/room-captures.md`. Tests: `npx jest`.
+Raum-Captures über SpAItial Echo-3 (`/room-captures`, `app/routes/roomCaptureRoute.js`): `docs/room-captures.md`. Mehrere Räume pro Space (`app/routes/multiRoomRoute.js`): `docs/multi-room-spaces.md`. Tests: `npx jest` (Routen-Tests laufen gegen `app/testing/fakeSupabase.js`, ohne Datenbank).
 
 ## Dienste & Konnektoren
 - **Supabase**: Postgres + Storage. Projekt-Ref `haaaayxcejprzqjainzp` (`https://haaaayxcejprzqjainzp.supabase.co`).

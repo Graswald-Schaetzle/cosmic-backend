@@ -7,7 +7,8 @@ is what the splat viewer already reads. The overall plan lives in `cosmic-ios/do
 ## Flow
 
 1. `GET /room-captures/quote?frame_count=N` (optional): price, available credits and estimated duration.
-2. `POST /room-captures` with `{ space_id, title, frame_count, room_id | room_name, floor_id?, has_lidar_mesh? }`
+2. `POST /room-captures` with `{ space_id, title, frame_count, room_id | room_name, floor_id? | floor_name?,
+   captured_at?, capture_session_id?, has_lidar_mesh? }`
    creates a reconstruction job (`provider = 'spaitial'`, `input_type = 'capture_bundle'`,
    `status = 'uploading'`) and, with `room_name`, the room. The response contains `upload_url` and,
    with `has_lidar_mesh`, `lidar_mesh_upload_url`: signed Supabase upload URLs (HTTP `PUT`, valid
@@ -60,13 +61,14 @@ Migration `20261111000001_room_captures.sql`:
 - `reconstruction_jobs`: `room_id`, `provider`, `provider_request_id`, `provider_status`,
   `lidar_mesh_path`, `room_frame`; `input_type` allows `capture_bundle`.
 - `room_connections`: a door between two rooms, marked in the coordinates of each room's capture.
-  Not written by any endpoint yet.
+  Written by `/room-connections`, see `multi-room-spaces.md`.
 
 ## Not done yet
 
 - Collision mesh and automatic calibration. The LiDAR mesh is in ARKit world coordinates; whether
   Echo-3 returns the splat in the coordinates of the submitted poses is unknown until the first
   real job. Until then the mesh stays in `captures` and `output_collision_path` is not set.
-- Floor plan export, joining several rooms (`room_frame`, `room_connections`), deleting the ZIP
-  after processing, cancelling a job at SpAItial.
+- Floor plan export, deleting the ZIP after processing, cancelling a job at SpAItial.
+- Joining several rooms is described in `multi-room-spaces.md`. The frames computed there rest on
+  the same unverified assumption about Echo-3's output coordinates.
 - The splat is buffered in memory while it is copied; the bucket `splats` allows 200 MB per file.
